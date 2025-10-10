@@ -340,7 +340,7 @@ app.post('/api/documents/upload', authenticate, isAdmin, upload.single('file'), 
   }
 });
 
-app.post('/api/documents/verify', authenticate, isCitizen, upload.single('file'), async (req, res) => {
+app.post('/api/documents/verify', upload.single('file'), async (req, res) => {
   if (!blockchain) {
     return res.status(503).json({ success: false, error: 'Blockchain not initialized yet' });
   }
@@ -402,13 +402,12 @@ app.post('/api/documents/verify', authenticate, isCitizen, upload.single('file')
 });
 
 
-app.get('/api/documents', authenticate, (req, res) => {
+app.get('/api/documents', (req, res) => {
   if (!blockchain) {
     return res.status(503).json({ success: false, error: 'Blockchain not initialized yet' });
   }
 
   const documents = [];
-
   blockchain.chain.forEach(block => {
     block.transactions.forEach(tx => {
       if (tx.type === 'document') {
@@ -425,9 +424,7 @@ app.get('/api/documents', authenticate, (req, res) => {
   res.json({ 
     success: true, 
     documents, 
-    count: documents.length,
-    requestedBy: req.user.username,
-    requestedByRole: req.user.role
+    count: documents.length
   });
 });
 

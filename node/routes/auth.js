@@ -5,6 +5,7 @@ const { authenticate, isAdmin, generateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Register new admin (first user only)
 router.post('/register', async (req, res) => {
   try {
     const { username, email, password, fullName } = req.body;
@@ -28,12 +29,12 @@ router.post('/register', async (req, res) => {
     }
 
     const userCount = await User.countDocuments();
-    const role = userCount === 0 ? 'admin' : 'citizen';
-
+    
+    // Only allow admin registration, no citizens
     if (userCount > 0) {
       return res.status(403).json({ 
         success: false, 
-        error: 'User registration requires admin approval. Please contact an administrator.' 
+        error: 'Admin registration is closed. Only the first user can register as admin.' 
       });
     }
 
@@ -42,7 +43,7 @@ router.post('/register', async (req, res) => {
       email,
       password,
       fullName,
-      role
+      role: 'admin'  // Force admin role
     });
 
     await user.save();
@@ -50,7 +51,7 @@ router.post('/register', async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: `${role === 'admin' ? 'Admin' : 'User'} registered successfully`,
+      message: 'Admin registered successfully',
       user: user.getPublicProfile(),
       token
     });
@@ -63,6 +64,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
+// Admin Login ONLY
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -82,6 +84,14 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ 
         success: false, 
         error: 'Invalid credentials' 
+      });
+    }
+
+    // Only allow admin login
+    if (user.role !== 'admin') {
+      return res.status(403).json({ 
+        success: false, 
+        error: 'Access denied. Admin login only.' 
       });
     }
 
@@ -121,6 +131,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// Get current user profile
 router.get('/me', authenticate, async (req, res) => {
   res.json({
     success: true,
@@ -128,21 +139,15 @@ router.get('/me', authenticate, async (req, res) => {
   });
 });
 
+// Admin: Create new admin account
 router.post('/users', authenticate, isAdmin, async (req, res) => {
   try {
-    const { username, email, password, fullName, role } = req.body;
+    const { username, email, password, fullName } = req.body;
 
     if (!username || !email || !password || !fullName) {
       return res.status(400).json({ 
         success: false, 
         error: 'All fields are required' 
-      });
-    }
-
-    if (role && !['admin', 'citizen'].includes(role)) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Invalid role. Must be "admin" or "citizen"' 
       });
     }
 
@@ -162,7 +167,7 @@ router.post('/users', authenticate, isAdmin, async (req, res) => {
       email,
       password,
       fullName,
-      role: role || 'citizen',
+      role: 'admin',  // Only create admin accounts
       createdBy: req.user._id
     });
 
@@ -170,7 +175,7 @@ router.post('/users', authenticate, isAdmin, async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'User created successfully',
+      message: 'Admin created successfully',
       user: user.getPublicProfile()
     });
   } catch (error) {
@@ -182,6 +187,7 @@ router.post('/users', authenticate, isAdmin, async (req, res) => {
   }
 });
 
+// Admin: Get all users
 router.get('/users', authenticate, isAdmin, async (req, res) => {
   try {
     const users = await User.find()
@@ -202,9 +208,10 @@ router.get('/users', authenticate, isAdmin, async (req, res) => {
   }
 });
 
+// Admin: Update user
 router.put('/users/:id', authenticate, isAdmin, async (req, res) => {
   try {
-    const { fullName, email, role, isActive } = req.body;
+    const { fullName, email, isActive } = req.body;
     const user = await User.findById(req.params.id);
 
     if (!user) {
@@ -223,7 +230,6 @@ router.put('/users/:id', authenticate, isAdmin, async (req, res) => {
 
     if (fullName) user.fullName = fullName;
     if (email) user.email = email;
-    if (role) user.role = role;
     if (typeof isActive === 'boolean') user.isActive = isActive;
 
     await user.save();
@@ -242,6 +248,7 @@ router.put('/users/:id', authenticate, isAdmin, async (req, res) => {
   }
 });
 
+// Admin: Delete user
 router.delete('/users/:id', authenticate, isAdmin, async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
