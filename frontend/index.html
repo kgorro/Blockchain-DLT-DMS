@@ -1,0 +1,1378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blockchain Distributed Ledger - Document Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        body {
+            background: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .navbar {
+            background: #ffffff;
+            border-bottom: 2px solid #e5e7eb;
+            padding: 1rem 0;
+        }
+
+        .navbar-brand {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1f2937 !important;
+        }
+
+        .card {
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .node-card {
+            border-left: 4px solid #6366f1;
+        }
+
+        .node-card.online {
+            border-left-color: #10b981;
+        }
+
+        .node-card.offline {
+            border-left-color: #ef4444;
+        }
+
+        .nav-pills .nav-link {
+            color: #4b5563;
+            border-radius: 8px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .nav-pills .nav-link:hover {
+            background: #f3f4f6;
+        }
+
+        .nav-pills .nav-link.active {
+            background: #6366f1;
+            color: white;
+        }
+
+        .btn-primary {
+            background: #6366f1;
+            border: none;
+            border-radius: 8px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+        }
+
+        .btn-primary:hover {
+            background: #4f46e5;
+        }
+
+        .btn-success {
+            background: #10b981;
+            border: none;
+            border-radius: 8px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .form-control, .form-select {
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 0.75rem;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .document-card {
+            cursor: default;
+            transition: all 0.2s ease;
+            border-left: 4px solid #6366f1;
+        }
+
+        .document-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .search-box {
+            position: relative;
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+        }
+
+        .search-box input {
+            padding-left: 2.5rem;
+        }
+
+        .pagination {
+            margin-top: 2rem;
+        }
+
+        .pagination .page-link {
+            color: #6366f1;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            margin: 0 0.25rem;
+        }
+
+        .pagination .page-link:hover {
+            background: #f3f4f6;
+        }
+
+        .pagination .page-item.active .page-link {
+            background: #6366f1;
+            border-color: #6366f1;
+        }
+
+        .badge {
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+
+        .modal-header {
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .hash-display {
+            background: #f9fafb;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            word-break: break-all;
+            border: 1px solid #e5e7eb;
+        }
+
+        .blockchain-block {
+            background: #f9fafb;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .blockchain-block:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .block-index {
+            width: 60px;
+            height: 60px;
+            background: #6366f1;
+            color: white;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.5rem;
+        }
+
+        .chain-link {
+            width: 3px;
+            height: 40px;
+            background: #d1d5db;
+            margin: 0 auto;
+        }
+
+        .alert {
+            border-radius: 12px;
+            border: none;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: #9ca3af;
+        }
+
+        .empty-state i {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .info-row {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .info-row i {
+            color: #6366f1;
+            min-width: 20px;
+        }
+
+        .file-preview {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .file-icon {
+            font-size: 3rem;
+            color: #6366f1;
+        }
+
+        .unsupported-file {
+            text-align: center;
+            padding: 4rem 2rem;
+        }
+
+        .btn-view-file {
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.375rem 0.75rem;
+            font-weight: 600;
+            font-size: 0.875rem;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .btn-view-file:hover {
+            background: #059669;
+            color: white;
+        }
+
+        .file-type-icon {
+            font-size: 1.2rem;
+            margin-right: 0.5rem;
+        }
+
+        .file-type-pdf { color: #ef4444; }
+        .file-type-image { color: #3b82f6; }
+        .file-type-word { color: #2563eb; }
+        .file-type-excel { color: #16a34a; }
+        .file-type-text { color: #6366f1; }
+        .file-type-default { color: #6b7280; }
+
+        /* Login Screen Styles */
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .login-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 450px;
+            width: 100%;
+            padding: 3rem;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .login-header h1 {
+            color: #1f2937;
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .login-header p {
+            color: #6b7280;
+        }
+
+        .user-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 0.5rem;
+        }
+
+        .user-badge.admin {
+            background: #6366f1;
+            color: white;
+        }
+
+        .user-badge.citizen {
+            background: #10b981;
+            color: white;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <i class="bi bi-shield-lock text-primary" style="font-size: 3rem;"></i>
+                <h1>CTU-Carmen Blockchain Distributed Ledger</h1>
+                <p>Document Management System</p>
+            </div>
+
+            <div id="loginAlert" class="alert alert-danger hidden"></div>
+
+            <form id="loginForm">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Username or Email</label>
+                    <input type="text" id="loginUsername" class="form-control" required>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label fw-semibold">Password</label>
+                    <input type="password" id="loginPassword" class="form-control" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-box-arrow-in-right"></i> Login
+                </button>
+            </form>
+
+            <p class="text-center text-muted mt-4 mb-0">
+                <small>First time? Contact your administrator for an account.</small>
+            </p>
+        </div>
+    </div>
+
+    <!-- Main Application (Hidden until logged in) -->
+    <div id="mainApp" class="hidden">
+        <!-- Navbar -->
+        <nav class="navbar navbar-expand-lg">
+            <div class="container">
+                <a class="navbar-brand" href="#">
+                    <i class="bi bi-shield-lock text-primary"></i> Blockchain DLT
+                </a>
+                <div class="d-flex align-items-center gap-3">
+                    <span class="text-muted">Welcome, <strong id="currentUser"></strong>
+                        <span id="roleBadge" class="user-badge"></span>
+                    </span>
+                    <button onclick="logout()" class="btn btn-sm btn-outline-danger">
+                        <i class="bi bi-box-arrow-right"></i> Logout
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container my-4">
+            <!-- Network Status -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <div class="card node-card" id="node1-card">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="fw-bold mb-1">Node 1</h6>
+                                    <small class="text-muted">Authority Node</small>
+                                </div>
+                                <div id="node1-status" class="text-muted">
+                                    <i class="bi bi-hourglass-split"></i>
+                                </div>
+                            </div>
+                            <div id="node1-blocks" class="mt-2 text-muted small"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card node-card" id="node2-card">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="fw-bold mb-1">Node 2</h6>
+                                    <small class="text-muted">Authority Node</small>
+                                </div>
+                                <div id="node2-status" class="text-muted">
+                                    <i class="bi bi-hourglass-split"></i>
+                                </div>
+                            </div>
+                            <div id="node2-blocks" class="mt-2 text-muted small"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card node-card" id="node3-card">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="fw-bold mb-1">Node 3</h6>
+                                    <small class="text-muted">Authority Node</small>
+                                </div>
+                                <div id="node3-status" class="text-muted">
+                                    <i class="bi bi-hourglass-split"></i>
+                                </div>
+                            </div>
+                            <div id="node3-blocks" class="mt-2 text-muted small"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="card">
+                <div class="card-body p-4">
+                    <!-- Tabs -->
+                    <ul class="nav nav-pills mb-4" role="tablist">
+                        <!-- Upload tab - Admin only -->
+                        <li class="nav-item admin-only">
+                            <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#upload">
+                                <i class="bi bi-cloud-upload"></i> Upload
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link citizen-default" data-bs-toggle="pill" data-bs-target="#verify">
+                                <i class="bi bi-shield-check"></i> Verify
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#documents" onclick="loadDocuments()">
+                                <i class="bi bi-file-earmark-text"></i> Documents
+                            </button>
+                        </li>
+                        <!-- Blockchain tab - Admin only -->
+                        <li class="nav-item admin-only">
+                            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#blockchain" onclick="loadBlockchain()">
+                                <i class="bi bi-diagram-3"></i> Blockchain
+                            </button>
+                        </li>
+                    </ul>
+
+                    <!-- Tab Content -->
+                    <div class="tab-content">
+                        <!-- Upload Tab - Admin Only -->
+                        <div class="tab-pane fade show active admin-only" id="upload">
+                            <h4 class="mb-4"><i class="bi bi-cloud-upload text-primary"></i> Upload Document</h4>
+                            <form id="uploadForm">
+                                <div class="row g-3">
+                                    <div class="col-md-12">
+                                        <label class="form-label fw-semibold">Node Selection</label>
+                                        <select id="uploadNode" class="form-select">
+                                            <option value="5001">Node 1 (Port 5001)</option>
+                                            <option value="5002">Node 2 (Port 5002)</option>
+                                            <option value="5003">Node 3 (Port 5003)</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-12">
+                                        <label class="form-label fw-semibold">Document Title <span class="text-danger">*</span></label>
+                                        <input type="text" id="title" required class="form-control" placeholder="e.g., Annual Report 2025">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Category</label>
+                                        <select id="category" class="form-select">
+                                            <option value="administrative">Administrative</option>
+                                            <option value="academic">Academic</option>
+                                            <option value="financial">Financial</option>
+                                            <option value="legal">Legal</option>
+                                            <option value="personnel">Personnel/HR</option>
+                                            <option value="correspondence">Correspondence</option>
+                                            <option value="projects">Projects</option>
+                                            <option value="others">Others</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Document Type</label>
+                                        <input type="text" id="documentType" class="form-control" placeholder="Memo">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Issuer</label>
+                                        <input type="text" id="issuer" class="form-control" placeholder="John Doe">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Recipient</label>
+                                        <input type="text" id="recipient" class="form-control" placeholder="All Staff">
+                                    </div>
+                                    <div class="col-md-12">
+                                        <label class="form-label fw-semibold">File <span class="text-danger">*</span></label>
+                                        <input type="file" id="file" required class="form-control">
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-lg w-100 mt-4">
+                                    <i class="bi bi-cloud-upload"></i> Upload to Blockchain
+                                </button>
+                            </form>
+                            <div id="uploadResult" class="mt-4"></div>
+                        </div>
+
+                        <!-- Verify Tab -->
+                        <div class="tab-pane fade citizen-default" id="verify">
+                            <h4 class="mb-4"><i class="bi bi-shield-check text-success"></i> Verify Document</h4>
+                            <form id="verifyForm">
+                                <div class="row g-3">
+                                    <div class="col-md-12">
+                                        <label class="form-label fw-semibold">Verify on Node</label>
+                                        <select id="verifyNode" class="form-select">
+                                            <option value="5001">Node 1 (Port 5001)</option>
+                                            <option value="5002">Node 2 (Port 5002)</option>
+                                            <option value="5003">Node 3 (Port 5003)</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-12">
+                                        <label class="form-label fw-semibold">Select File to Verify</label>
+                                        <input type="file" id="verifyFile" required class="form-control">
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-success btn-lg w-100 mt-4">
+                                    <i class="bi bi-shield-check"></i> Verify Document
+                                </button>
+                            </form>
+                            <div id="verifyResult" class="mt-4"></div>
+                        </div>
+
+                        <!-- Documents Tab -->
+                        <div class="tab-pane fade" id="documents">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h4 class="mb-0"><i class="bi bi-file-earmark-text text-info"></i> All Documents</h4>
+                                <button onclick="loadDocuments()" class="btn btn-primary">
+                                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                                </button>
+                            </div>
+                            
+                            <!-- Search Box -->
+                            <div class="search-box mb-4">
+                                <i class="bi bi-search"></i>
+                                <input type="text" id="searchInput" class="form-control" placeholder="Search by title, category, issuer...">
+                            </div>
+                            
+                            <div id="documentsList"></div>
+                            
+                            <!-- Pagination -->
+                            <nav id="paginationNav" style="display: none;">
+                                <ul class="pagination justify-content-center" id="paginationList"></ul>
+                            </nav>
+                        </div>
+
+                        <!-- Blockchain Tab - Admin Only -->
+                        <div class="tab-pane fade admin-only" id="blockchain">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h4 class="mb-0"><i class="bi bi-diagram-3 text-warning"></i> Blockchain Explorer</h4>
+                                <select id="blockchainNode" onchange="loadBlockchain()" class="form-select" style="width: auto;">
+                                    <option value="5001">Node 1</option>
+                                    <option value="5002">Node 2</option>
+                                    <option value="5003">Node 3</option>
+                                </select>
+                            </div>
+                            <div id="blockchainView"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Document Details Modal -->
+    <div class="modal fade" id="documentModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-file-earmark-text text-primary"></i> Document Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="modalBody"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- File Viewer Modal -->
+    <div class="modal fade" id="fileViewerModal" tabindex="-1">
+        <div class="modal-dialog modal-fullscreen">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold" id="viewerTitle"></h5>
+                    <div>
+                        <button type="button" class="btn btn-primary me-2" id="downloadBtn">
+                            <i class="bi bi-download"></i> Download
+                        </button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                </div>
+                <div class="modal-body p-0" id="fileViewerBody">
+                    <div class="d-flex justify-content-center align-items-center" style="height: 100%;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_BASE = 'http://localhost';
+        let allDocuments = [];
+        let currentPage = 1;
+        const itemsPerPage = 5;
+        let authToken = null;
+        let currentUser = null;
+
+        // Check if user is already logged in on page load
+        window.onload = () => {
+            const token = localStorage.getItem('authToken');
+            if (token) {
+                authToken = token;
+                verifyToken();
+            }
+        };
+
+        // Login form handler
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+
+            try {
+                const response = await fetch(`${API_BASE}:5001/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    authToken = data.token;
+                    currentUser = data.user;
+                    localStorage.setItem('authToken', authToken);
+                    showMainApp();
+                } else {
+                    showLoginAlert(data.error);
+                }
+            } catch (error) {
+                showLoginAlert('Connection error. Please check if the server is running.');
+            }
+        });
+
+        // Verify existing token
+        async function verifyToken() {
+            try {
+                const response = await fetch(`${API_BASE}:5001/api/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    currentUser = data.user;
+                    showMainApp();
+                } else {
+                    localStorage.removeItem('authToken');
+                    authToken = null;
+                }
+            } catch (error) {
+                localStorage.removeItem('authToken');
+                authToken = null;
+            }
+        }
+
+        // Show main application
+        function showMainApp() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+
+            // Set user info
+            document.getElementById('currentUser').textContent = currentUser.fullName;
+            const roleBadge = document.getElementById('roleBadge');
+            roleBadge.textContent = currentUser.role.toUpperCase();
+            roleBadge.className = `user-badge ${currentUser.role}`;
+
+            // Configure UI based on role
+            if (currentUser.role === 'admin') {
+                // Admin sees all tabs
+                document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
+                document.querySelectorAll('.citizen-default').forEach(el => el.classList.remove('active', 'show'));
+                document.querySelector('[data-bs-target="#upload"]').classList.add('active');
+                document.getElementById('upload').classList.add('show', 'active');
+            } else {
+                // Citizens don't see admin-only features
+                document.querySelectorAll('.admin-only').forEach(el => el.classList.add('hidden'));
+                // Set verify tab as default for citizens
+                document.querySelector('[data-bs-target="#verify"]').classList.add('active');
+                document.getElementById('verify').classList.add('show', 'active');
+            }
+
+            // Initialize the app
+            checkNodeStatus();
+            setInterval(checkNodeStatus, 5000);
+        }
+
+        // Logout
+        function logout() {
+            localStorage.removeItem('authToken');
+            authToken = null;
+            currentUser = null;
+            
+            document.getElementById('mainApp').classList.add('hidden');
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('loginForm').reset();
+            document.getElementById('loginAlert').classList.add('hidden');
+        }
+
+        // Show login alert
+        function showLoginAlert(message) {
+            const alert = document.getElementById('loginAlert');
+            alert.textContent = message;
+            alert.classList.remove('hidden');
+        }
+
+        // Get auth headers
+        function getAuthHeaders() {
+            return {
+                'Authorization': `Bearer ${authToken}`
+            };
+        }
+
+        async function checkNodeStatus() {
+            const nodes = [5001, 5002, 5003];
+            
+            for (let i = 0; i < nodes.length; i++) {
+                const port = nodes[i];
+                try {
+                    const response = await fetch(`${API_BASE}:${port}/api/health`);
+                    const data = await response.json();
+                    
+                    document.getElementById(`node${i+1}-status`).innerHTML = '<i class="bi bi-check-circle-fill text-success fs-4"></i>';
+                    document.getElementById(`node${i+1}-blocks`).innerHTML = `${data.blockCount} blocks · ${data.peers} peers`;
+                    document.getElementById(`node${i+1}-card`).classList.remove('offline');
+                    document.getElementById(`node${i+1}-card`).classList.add('online');
+                } catch (error) {
+                    document.getElementById(`node${i+1}-status`).innerHTML = '<i class="bi bi-x-circle-fill text-danger fs-4"></i>';
+                    document.getElementById(`node${i+1}-blocks`).textContent = 'Not connected';
+                    document.getElementById(`node${i+1}-card`).classList.remove('online');
+                    document.getElementById(`node${i+1}-card`).classList.add('offline');
+                }
+            }
+        }
+
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const port = document.getElementById('uploadNode').value;
+            const formData = new FormData();
+            
+            formData.append('file', document.getElementById('file').files[0]);
+            formData.append('title', document.getElementById('title').value);
+            formData.append('category', document.getElementById('category').value);
+            formData.append('documentType', document.getElementById('documentType').value);
+            formData.append('issuer', document.getElementById('issuer').value);
+            formData.append('recipient', document.getElementById('recipient').value);
+
+            try {
+                const response = await fetch(`${API_BASE}:${port}/api/documents/upload`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.status === 401) {
+                    alert('Session expired. Please login again.');
+                    logout();
+                    return;
+                }
+                
+                if (data.success) {
+                    document.getElementById('uploadResult').innerHTML = `
+                        <div class="alert alert-success">
+                            <h5 class="alert-heading"><i class="bi bi-check-circle-fill"></i> Success!</h5>
+                            <p>Document uploaded and transaction broadcasted to the network</p>
+                            <hr>
+                            <p class="mb-0"><strong>Hash:</strong> <code>${data.fileHash.substring(0, 40)}...</code></p>
+                            <p class="mb-0"><strong>Pending:</strong> ${data.pendingTransactions} transaction(s)</p>
+                            <p class="mb-0"><strong>Uploaded by:</strong> ${data.uploadedBy}</p>
+                        </div>
+                    `;
+                    
+                    document.getElementById('uploadForm').reset();
+                    setTimeout(checkNodeStatus, 2000);
+                } else {
+                    throw new Error(data.error);
+                }
+            } catch (error) {
+                document.getElementById('uploadResult').innerHTML = `
+                    <div class="alert alert-danger">
+                        <h5 class="alert-heading"><i class="bi bi-x-circle-fill"></i> Error</h5>
+                        <p class="mb-0">${error.message}</p>
+                    </div>
+                `;
+            }
+        });
+
+        document.getElementById('verifyForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const port = document.getElementById('verifyNode').value;
+            const formData = new FormData();
+            formData.append('file', document.getElementById('verifyFile').files[0]);
+
+            try {
+                const response = await fetch(`${API_BASE}:${port}/api/documents/verify`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.status === 401) {
+                    alert('Session expired. Please login again.');
+                    logout();
+                    return;
+                }
+                
+                if (data.isValid) {
+                    document.getElementById('verifyResult').innerHTML = `
+                        <div class="alert alert-success">
+                            <h4><i class="bi bi-shield-check"></i> Document Verified!</h4>
+                            <p>This document is authentic and has not been tampered with</p>
+                            <hr>
+                            <div class="row g-2">
+                                <div class="col-md-6"><strong>Title:</strong> ${data.document.title}</div>
+                                <div class="col-md-6"><strong>Category:</strong> ${data.document.category}</div>
+                                <div class="col-md-6"><strong>Type:</strong> ${data.document.documentType}</div>
+                                <div class="col-md-6"><strong>Issuer:</strong> ${data.document.issuer}</div>
+                                <div class="col-md-6"><strong>Uploaded:</strong> ${new Date(data.document.uploadedAt).toLocaleString()}</div>
+                                <div class="col-md-6"><strong>Block:</strong> #${data.blockIndex}</div>
+                                <div class="col-md-12"><strong>Verified by:</strong> ${data.verifiedBy} (${currentUser.role})</div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('verifyResult').innerHTML = `
+                        <div class="alert alert-danger">
+                            <h4><i class="bi bi-x-circle-fill"></i> Verification Failed</h4>
+                            <p class="mb-0">${data.message}</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('verifyResult').innerHTML = `
+                    <div class="alert alert-danger">
+                        <h5><i class="bi bi-exclamation-triangle-fill"></i> Error</h5>
+                        <p class="mb-0">${error.message}</p>
+                    </div>
+                `;
+            }
+        });
+
+        async function loadDocuments() {
+            try {
+                const response = await fetch(`${API_BASE}:5001/api/documents`, {
+                    headers: getAuthHeaders()
+                });
+                
+                if (response.status === 401) {
+                    alert('Session expired. Please login again.');
+                    logout();
+                    return;
+                }
+                
+                const data = await response.json();
+                
+                allDocuments = data.documents.reverse();
+                currentPage = 1;
+                
+                if (allDocuments.length === 0) {
+                    document.getElementById('documentsList').innerHTML = `
+                        <div class="empty-state">
+                            <i class="bi bi-file-earmark-text"></i>
+                            <h5>No documents yet</h5>
+                            <p>Upload your first document to get started!</p>
+                        </div>
+                    `;
+                    document.getElementById('paginationNav').style.display = 'none';
+                    return;
+                }
+                
+                displayDocuments();
+                setupSearch();
+            } catch (error) {
+                document.getElementById('documentsList').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle-fill"></i> Error loading documents: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function displayDocuments(filteredDocs = null) {
+            const docs = filteredDocs || allDocuments;
+            const totalPages = Math.ceil(docs.length / itemsPerPage);
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const paginatedDocs = docs.slice(startIndex, endIndex);
+            
+            if (paginatedDocs.length === 0 && filteredDocs) {
+                document.getElementById('documentsList').innerHTML = `
+                    <div class="empty-state">
+                        <i class="bi bi-search"></i>
+                        <h5>No matching documents</h5>
+                        <p>Try adjusting your search terms</p>
+                    </div>
+                `;
+                document.getElementById('paginationNav').style.display = 'none';
+                return;
+            }
+            
+            const html = paginatedDocs.map(doc => {
+                const fileIcon = getFileIcon(doc.fileType);
+                return `
+                <div class="card document-card mb-3">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div class="d-flex align-items-center" style="cursor: pointer;" onclick="showDocumentDetails(${JSON.stringify(doc).replace(/"/g, '&quot;')})">
+                                <i class="bi ${fileIcon.icon} file-type-icon ${fileIcon.class}"></i>
+                                <h5 class="fw-bold mb-0">${doc.title}</h5>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <button class="btn btn-sm btn-view-file" onclick="event.stopPropagation(); viewFile('${doc.filePath}', '${doc.fileName}', '${doc.fileType}', '${doc.uploadedBy || doc.uploadedByRole || 'node-1'}')" title="View File">
+                                    <i class="bi bi-eye"></i> View
+                                </button>
+                                <span class="badge bg-primary">Block #${doc.blockIndex}</span>
+                            </div>
+                        </div>
+                        <div class="row g-2" onclick="showDocumentDetails(${JSON.stringify(doc).replace(/"/g, '&quot;')})" style="cursor: pointer;">
+                            <div class="col-md-4">
+                                <div class="info-row">
+                                    <i class="bi bi-folder"></i>
+                                    <small><strong>Category:</strong> ${doc.category}</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="info-row">
+                                    <i class="bi bi-tag"></i>
+                                    <small><strong>Type:</strong> ${doc.documentType}</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="info-row">
+                                    <i class="bi bi-person-badge"></i>
+                                    <small><strong>Issuer:</strong> ${doc.issuer}</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="info-row">
+                                    <i class="bi bi-file-earmark"></i>
+                                    <small><strong>File:</strong> ${doc.fileName}</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="info-row">
+                                    <i class="bi bi-hdd"></i>
+                                    <small><strong>Size:</strong> ${(doc.fileSize / 1024).toFixed(2)} KB</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="info-row">
+                                    <i class="bi bi-clock"></i>
+                                    <small>${new Date(doc.uploadedAt).toLocaleDateString()}</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;}).join('');
+            
+            document.getElementById('documentsList').innerHTML = html;
+            
+            if (totalPages > 1) {
+                renderPagination(totalPages, docs);
+                document.getElementById('paginationNav').style.display = 'block';
+            } else {
+                document.getElementById('paginationNav').style.display = 'none';
+            }
+        }
+
+        function renderPagination(totalPages, docs) {
+            let paginationHtml = '';
+            
+            paginationHtml += `
+                <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                    <a class="page-link" href="#" onclick="changePage(${currentPage - 1}, ${JSON.stringify(docs).replace(/"/g, '&quot;')}); return false;">Previous</a>
+                </li>
+            `;
+            
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+                    paginationHtml += `
+                        <li class="page-item ${i === currentPage ? 'active' : ''}">
+                            <a class="page-link" href="#" onclick="changePage(${i}, ${JSON.stringify(docs).replace(/"/g, '&quot;')}); return false;">${i}</a>
+                        </li>
+                    `;
+                } else if (i === currentPage - 3 || i === currentPage + 3) {
+                    paginationHtml += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+                }
+            }
+            
+            paginationHtml += `
+                <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                    <a class="page-link" href="#" onclick="changePage(${currentPage + 1}, ${JSON.stringify(docs).replace(/"/g, '&quot;')}); return false;">Next</a>
+                </li>
+            `;
+            
+            document.getElementById('paginationList').innerHTML = paginationHtml;
+        }
+
+        function changePage(page, docs = null) {
+            currentPage = page;
+            displayDocuments(docs);
+            document.getElementById('documents').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function setupSearch() {
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('input', (e) => {
+                const searchTerm = e.target.value.toLowerCase();
+                
+                if (searchTerm === '') {
+                    currentPage = 1;
+                    displayDocuments();
+                    return;
+                }
+                
+                const filtered = allDocuments.filter(doc => 
+                    doc.title.toLowerCase().includes(searchTerm) ||
+                    doc.category.toLowerCase().includes(searchTerm) ||
+                    doc.documentType.toLowerCase().includes(searchTerm) ||
+                    doc.issuer.toLowerCase().includes(searchTerm) ||
+                    doc.recipient.toLowerCase().includes(searchTerm) ||
+                    doc.fileName.toLowerCase().includes(searchTerm)
+                );
+                
+                currentPage = 1;
+                displayDocuments(filtered);
+            });
+        }
+
+        function showDocumentDetails(doc) {
+            const modalBody = document.getElementById('modalBody');
+            modalBody.innerHTML = `
+                <div class="row g-3">
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <h4 class="fw-bold">${doc.title}</h4>
+                            <button class="btn btn-view-file" onclick="viewFile('${doc.filePath}', '${doc.fileName}', '${doc.fileType}', '${doc.uploadedBy || doc.uploadedByRole || 'node-1'}')">
+                                <i class="bi bi-eye"></i> View File
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <strong><i class="bi bi-folder text-primary"></i> Category:</strong><br>
+                        ${doc.category}
+                    </div>
+                    <div class="col-md-6">
+                        <strong><i class="bi bi-tag text-primary"></i> Document Type:</strong><br>
+                        ${doc.documentType}
+                    </div>
+                    <div class="col-md-6">
+                        <strong><i class="bi bi-person-badge text-primary"></i> Issuer:</strong><br>
+                        ${doc.issuer}
+                    </div>
+                    <div class="col-md-6">
+                        <strong><i class="bi bi-person-check text-primary"></i> Recipient:</strong><br>
+                        ${doc.recipient}
+                    </div>
+                    <div class="col-md-6">
+                        <strong><i class="bi bi-building text-primary"></i> Department:</strong><br>
+                        ${doc.department}
+                    </div>
+                    <div class="col-md-6">
+                        <strong><i class="bi bi-hash text-primary"></i> Reference Number:</strong><br>
+                        ${doc.referenceNumber}
+                    </div>
+                    <div class="col-12">
+                        <strong><i class="bi bi-file-earmark text-primary"></i> File Details:</strong><br>
+                        <span class="badge bg-secondary">${doc.fileName}</span>
+                        <span class="badge bg-secondary">${(doc.fileSize / 1024).toFixed(2)} KB</span>
+                        <span class="badge bg-secondary">${doc.fileType}</span>
+                    </div>
+                    <div class="col-12">
+                        <strong><i class="bi bi-clock text-primary"></i> Upload Date:</strong><br>
+                        ${new Date(doc.uploadedAt).toLocaleString()}
+                    </div>
+                    <div class="col-12">
+                        <strong><i class="bi bi-hdd-network text-primary"></i> Uploaded By:</strong><br>
+                        ${doc.uploadedBy || 'System'}
+                    </div>
+                    <div class="col-12">
+                        <strong><i class="bi bi-box text-primary"></i> Blockchain Details:</strong><br>
+                        <span class="badge bg-primary">Block #${doc.blockIndex}</span>
+                        <span class="badge bg-info text-dark">${doc.blockHash.substring(0, 16)}...</span>
+                    </div>
+                    ${doc.description && doc.description !== 'N/A' ? `
+                        <div class="col-12">
+                            <strong><i class="bi bi-file-text text-primary"></i> Description:</strong><br>
+                            ${doc.description}
+                        </div>
+                    ` : ''}
+                    <div class="col-12">
+                        <strong><i class="bi bi-fingerprint text-primary"></i> File Hash:</strong>
+                        <div class="hash-display mt-2">${doc.fileHash}</div>
+                    </div>
+                </div>
+            `;
+            
+            const modal = new bootstrap.Modal(document.getElementById('documentModal'));
+            modal.show();
+        }
+
+        function viewFile(filePath, fileName, fileType, uploadedBy) {
+            const nodeMatch = uploadedBy.match(/node-(\d+)/) || uploadedBy.match(/(\d+)/);
+            const nodeNum = nodeMatch ? nodeMatch[1] : '1';
+            const port = 5000 + parseInt(nodeNum);
+            
+            const fileNameFromPath = filePath.split('/').pop();
+            const fileUrl = `${API_BASE}:${port}/uploads/${fileNameFromPath}`;
+            
+            document.getElementById('viewerTitle').innerHTML = `<i class="bi bi-file-earmark"></i> ${fileName}`;
+            
+            const downloadBtn = document.getElementById('downloadBtn');
+            downloadBtn.onclick = () => {
+                const link = document.createElement('a');
+                link.href = fileUrl;
+                link.download = fileName;
+                link.click();
+            };
+            
+            const viewerModal = new bootstrap.Modal(document.getElementById('fileViewerModal'));
+            
+            const documentModal = bootstrap.Modal.getInstance(document.getElementById('documentModal'));
+            if (documentModal) {
+                documentModal.hide();
+            }
+            
+            viewerModal.show();
+            
+            const viewerBody = document.getElementById('fileViewerBody');
+            
+            if (fileType === 'application/pdf') {
+                viewerBody.innerHTML = `
+                    <iframe src="${fileUrl}" class="file-preview" style="width: 100%; height: calc(100vh - 120px);"></iframe>
+                `;
+            } else if (fileType.startsWith('image/')) {
+                viewerBody.innerHTML = `
+                    <div class="d-flex justify-content-center align-items-center p-4" style="height: calc(100vh - 120px); background: #f3f4f6;">
+                        <img src="${fileUrl}" alt="${fileName}" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                    </div>
+                `;
+            } else if (fileType === 'text/plain' || fileType === 'text/html' || fileType === 'application/json') {
+                fetch(fileUrl)
+                    .then(response => response.text())
+                    .then(text => {
+                        viewerBody.innerHTML = `
+                            <div class="p-4">
+                                <pre style="background: #f9fafb; padding: 1.5rem; border-radius: 8px; max-height: calc(100vh - 150px); overflow: auto;"><code>${escapeHtml(text)}</code></pre>
+                            </div>
+                        `;
+                    })
+                    .catch(error => {
+                        showUnsupportedFile(viewerBody, fileName, fileUrl);
+                    });
+            } else if (fileType.includes('word') || fileType.includes('document')) {
+                viewerBody.innerHTML = `
+                    <div class="unsupported-file">
+                        <i class="bi bi-file-word file-icon text-primary"></i>
+                        <h4 class="mt-3">Microsoft Word Document</h4>
+                        <p class="text-muted">${fileName}</p>
+                        <p>Word documents cannot be previewed in the browser.</p>
+                        <button class="btn btn-primary btn-lg" onclick="document.getElementById('downloadBtn').click()">
+                            <i class="bi bi-download"></i> Download to View
+                        </button>
+                    </div>
+                `;
+            } else if (fileType.includes('excel') || fileType.includes('spreadsheet')) {
+                viewerBody.innerHTML = `
+                    <div class="unsupported-file">
+                        <i class="bi bi-file-excel file-icon text-success"></i>
+                        <h4 class="mt-3">Microsoft Excel Document</h4>
+                        <p class="text-muted">${fileName}</p>
+                        <p>Excel documents cannot be previewed in the browser.</p>
+                        <button class="btn btn-success btn-lg" onclick="document.getElementById('downloadBtn').click()">
+                            <i class="bi bi-download"></i> Download to View
+                        </button>
+                    </div>
+                `;
+            } else if (fileType.includes('video/')) {
+                viewerBody.innerHTML = `
+                    <div class="d-flex justify-content-center align-items-center p-4" style="height: calc(100vh - 120px); background: #000;">
+                        <video controls style="max-width: 100%; max-height: 100%;">
+                            <source src="${fileUrl}" type="${fileType}">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                `;
+            } else if (fileType.includes('audio/')) {
+                viewerBody.innerHTML = `
+                    <div class="unsupported-file">
+                        <i class="bi bi-music-note-beamed file-icon text-info"></i>
+                        <h4 class="mt-3">Audio File</h4>
+                        <p class="text-muted">${fileName}</p>
+                        <audio controls class="w-100 mt-3">
+                            <source src="${fileUrl}" type="${fileType}">
+                            Your browser does not support the audio tag.
+                        </audio>
+                    </div>
+                `;
+            } else {
+                showUnsupportedFile(viewerBody, fileName, fileUrl);
+            }
+        }
+
+        function showUnsupportedFile(viewerBody, fileName, fileUrl) {
+            viewerBody.innerHTML = `
+                <div class="unsupported-file">
+                    <i class="bi bi-file-earmark file-icon text-secondary"></i>
+                    <h4 class="mt-3">File Preview Not Available</h4>
+                    <p class="text-muted">${fileName}</p>
+                    <p>This file type cannot be previewed in the browser.</p>
+                    <button class="btn btn-primary btn-lg" onclick="document.getElementById('downloadBtn').click()">
+                        <i class="bi bi-download"></i> Download File
+                    </button>
+                </div>
+            `;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function getFileIcon(fileType) {
+            if (fileType === 'application/pdf') {
+                return { icon: 'bi-file-pdf-fill', class: 'file-type-pdf' };
+            } else if (fileType.startsWith('image/')) {
+                return { icon: 'bi-file-image-fill', class: 'file-type-image' };
+            } else if (fileType.includes('word') || fileType.includes('document')) {
+                return { icon: 'bi-file-word-fill', class: 'file-type-word' };
+            } else if (fileType.includes('excel') || fileType.includes('spreadsheet')) {
+                return { icon: 'bi-file-excel-fill', class: 'file-type-excel' };
+            } else if (fileType.startsWith('text/')) {
+                return { icon: 'bi-file-text-fill', class: 'file-type-text' };
+            } else if (fileType.startsWith('video/')) {
+                return { icon: 'bi-file-play-fill', class: 'file-type-default' };
+            } else if (fileType.startsWith('audio/')) {
+                return { icon: 'bi-file-music-fill', class: 'file-type-default' };
+            } else {
+                return { icon: 'bi-file-earmark-fill', class: 'file-type-default' };
+            }
+        }
+
+        async function loadBlockchain() {
+            const port = document.getElementById('blockchainNode').value;
+            
+            try {
+                const response = await fetch(`${API_BASE}:${port}/api/blockchain/blocks`, {
+                    headers: getAuthHeaders()
+                });
+                
+                if (response.status === 401) {
+                    alert('Session expired. Please login again.');
+                    logout();
+                    return;
+                }
+                
+                const data = await response.json();
+                
+                const html = data.blocks.map((block, idx) => `
+                    <div class="blockchain-block">
+                        <div class="d-flex align-items-start mb-3">
+                            <div class="block-index me-3">${block.index}</div>
+                            <div class="flex-grow-1">
+                                <h5 class="fw-bold mb-1">Block #${block.index}</h5>
+                                <small class="text-muted">
+                                    <i class="bi bi-clock"></i> ${new Date(block.timestamp).toLocaleString()}
+                                </small>
+                                ${block.authority ? `
+                                    <span class="badge bg-primary ms-2">
+                                        <i class="bi bi-shield-check"></i> ${block.authority}
+                                    </span>
+                                ` : ''}
+                            </div>
+                        </div>
+                        
+                        ${block.transactions.length > 0 ? `
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <h6 class="fw-bold">
+                                        <i class="bi bi-box-arrow-in-right text-info"></i> ${block.transactions.length} Transaction(s)
+                                    </h6>
+                                    <ul class="list-unstyled mb-0">
+                                        ${block.transactions.map(tx => `
+                                            <li class="mb-1">
+                                                <i class="bi bi-circle-fill text-primary" style="font-size: 0.5rem;"></i>
+                                                <small>${tx.data?.title || tx.data?.info || 'Transaction'}</small>
+                                            </li>
+                                        `).join('')}
+                                    </ul>
+                                </div>
+                            </div>
+                        ` : ''}
+                        
+                        <div class="mb-2">
+                            <small class="fw-semibold text-muted d-block mb-2">
+                                <i class="bi bi-fingerprint"></i> Block Hash:
+                            </small>
+                            <div class="hash-display">${block.hash}</div>
+                        </div>
+                        
+                        <div>
+                            <small class="fw-semibold text-muted d-block mb-2">
+                                <i class="bi bi-link-45deg"></i> Previous Hash:
+                            </small>
+                            <div class="hash-display">${block.previousHash}</div>
+                        </div>
+                    </div>
+                    
+                    ${idx < data.blocks.length - 1 ? '<div class="chain-link"></div>' : ''}
+                `).join('');
+                
+                document.getElementById('blockchainView').innerHTML = html || `
+                    <div class="empty-state">
+                        <i class="bi bi-diagram-3"></i>
+                        <h5>No blocks found</h5>
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('blockchainView').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle-fill"></i> Error loading blockchain: ${error.message}
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>
