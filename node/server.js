@@ -69,6 +69,13 @@ mongoose.connect(MONGODB_URI, {
     }, 2000);
   }
 
+  setInterval(() => {
+    if (p2pServer.peers.length > 0) {
+      console.log('🔄 Periodic sync - requesting chain from peers...');
+      p2pServer.requestSync();
+    }
+  }, 15000); // 15 seconds
+  
   // Start HTTP server AFTER blockchain is initialized
   startHTTPServer();
 })
@@ -375,9 +382,7 @@ app.post('/api/documents/verify', upload.single('file'), async (req, res) => {
       return res.json({
         success: true,
         isValid: false,
-        message: 'Document not found in blockchain',
-        verifiedBy: req.user.username,
-        verifiedAt: new Date().toISOString()
+        message: 'Document not found in blockchain'
       });
     }
 
@@ -389,10 +394,7 @@ app.post('/api/documents/verify', upload.single('file'), async (req, res) => {
       isChainIntact: chainValid.valid,
       message: 'Document verified successfully',
       document: found.data,
-      blockIndex,
-      verifiedBy: req.user.username,
-      verifiedByRole: req.user.role,
-      verifiedAt: new Date().toISOString()
+      blockIndex
     });
 
   } catch (error) {
@@ -402,29 +404,56 @@ app.post('/api/documents/verify', upload.single('file'), async (req, res) => {
 });
 
 
-app.get('/api/documents', (req, res) => {
+app.get('/api/documents', async (req, res) => {
   if (!blockchain) {
     return res.status(503).json({ success: false, error: 'Blockchain not initialized yet' });
   }
 
   const documents = [];
+  const documentHashes = new Set(); // Prevent duplicates
+  
+  // Get documents from blockchain
   blockchain.chain.forEach(block => {
     block.transactions.forEach(tx => {
-      if (tx.type === 'document') {
-        documents.push({
-          ...tx.data,
-          blockIndex: block.index,
-          blockHash: block.hash,
-          timestamp: tx.timestamp
-        });
+      if (tx.type === 'document' && tx.data) {
+        if (!documentHashes.has(tx.data.fileHash)) {
+          documentHashes.add(tx.data.fileHash);
+          documents.push({
+            ...tx.data,
+            blockIndex: block.index,
+            blockHash: block.hash,
+            timestamp: tx.timestamp,
+            status: 'confirmed'
+          });
+        }
       }
     });
   });
+  
+  // Also check pending transactions (not yet mined)
+  blockchain.pendingTransactions.forEach(tx => {
+    if (tx.type === 'document' && tx.data) {
+      if (!documentHashes.has(tx.data.fileHash)) {
+        documentHashes.add(tx.data.fileHash);
+        documents.push({
+          ...tx.data,
+          blockIndex: 'pending',
+          blockHash: 'pending',
+          timestamp: tx.timestamp,
+          status: 'pending'
+        });
+      }
+    }
+  });
 
+  console.log(`📄 Found ${documents.length} documents (${blockchain.pendingTransactions.length} pending)`);
+  
   res.json({ 
     success: true, 
-    documents, 
-    count: documents.length
+    documents: documents.sort((a, b) => b.timestamp - a.timestamp), // Latest first
+    count: documents.length,
+    chainLength: blockchain.chain.length,
+    pendingCount: blockchain.pendingTransactions.length
   });
 });
 

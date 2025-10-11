@@ -125,10 +125,34 @@
             padding-left: 2.5rem;
         }
 
+                .pagination {
+            margin-top: 2rem;
+        }
+
+        .pagination .page-link {
+            color: #6366f1;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            margin: 0 0.25rem;
+        }
+
+        .pagination .page-link:hover {
+            background: #f3f4f6;
+        }
+
+        .pagination .page-item.active .page-link {
+            background: #6366f1;
+            border-color: #6366f1;
+        }
+
         .badge {
             padding: 0.5rem 1rem;
             border-radius: 6px;
             font-weight: 600;
+        }
+
+        .modal-header {
+            border-bottom: 2px solid #e5e7eb;
         }
 
         .hash-display {
@@ -174,12 +198,85 @@
             margin-right: 0.5rem;
         }
 
+                .blockchain-block {
+            background: #f9fafb;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .blockchain-block:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .block-index {
+            width: 60px;
+            height: 60px;
+            background: #6366f1;
+            color: white;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.5rem;
+        }
+
+                .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        
+        .chain-link {
+            width: 3px;
+            height: 40px;
+            background: #d1d5db;
+            margin: 0 auto;
+        }
+
         .file-type-pdf { color: #ef4444; }
         .file-type-image { color: #3b82f6; }
         .file-type-word { color: #2563eb; }
         .file-type-excel { color: #16a34a; }
         .file-type-text { color: #6366f1; }
         .file-type-default { color: #6b7280; }
+
+        .file-preview {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .file-icon {
+            font-size: 3rem;
+            color: #6366f1;
+        }
+
+        .unsupported-file {
+            text-align: center;
+            padding: 4rem 2rem;
+        }
+
+        .btn-view-file {
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.375rem 0.75rem;
+            font-weight: 600;
+            font-size: 0.875rem;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .btn-view-file:hover {
+            background: #059669;
+            color: white;
+        }
 
         /* Welcome Screen Styles */
         .welcome-container {
@@ -262,6 +359,7 @@
         .divider::after {
             right: 0;
         }
+
     </style>
 </head>
 <body>
@@ -276,7 +374,7 @@
 
             <!-- Admin Login Section -->
             <div id="loginSection">
-                <h5 class="text-center mb-3">Administrator Login</h5>
+                <h5 class="text-center mb-3">Login</h5>
                 
                 <div id="loginAlert" class="alert alert-danger hidden"></div>
 
@@ -297,11 +395,11 @@
                 <div class="divider">OR</div>
 
                 <button onclick="continueAsGuest()" class="btn btn-success w-100">
-                    <i class="bi bi-person"></i> Continue as Guest
+                    <i class="bi bi-person"></i> Continue as Citizen
                 </button>
 
                 <p class="text-center text-muted mt-3 mb-0">
-                    <small>Guests can verify and view documents</small>
+                    <small>Citizen can verify and view documents</small>
                 </p>
             </div>
         </div>
@@ -540,6 +638,30 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body" id="modalBody"></div>
+            </div>
+        </div>
+    </div>
+
+        <!-- File Viewer Modal -->
+    <div class="modal fade" id="fileViewerModal" tabindex="-1">
+        <div class="modal-dialog modal-fullscreen">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold" id="viewerTitle"></h5>
+                    <div>
+                        <button type="button" class="btn btn-primary me-2" id="downloadBtn">
+                            <i class="bi bi-download"></i> Download
+                        </button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                </div>
+                <div class="modal-body p-0" id="fileViewerBody">
+                    <div class="d-flex justify-content-center align-items-center" style="height: 100%;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -894,6 +1016,12 @@
                                 <i class="bi ${fileIcon.icon} file-type-icon ${fileIcon.class}"></i>
                                 <h5 class="fw-bold mb-0">${doc.title}</h5>
                             </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <button class="btn btn-sm btn-view-file" onclick="event.stopPropagation(); viewFile('${doc.filePath}', '${doc.fileName}', '${doc.fileType}', '${doc.uploadedBy || doc.uploadedByRole || 'node-1'}')" title="View File">
+                                    <i class="bi bi-eye"></i> View
+                                </button>
+                                <span class="badge bg-primary">Block #${doc.blockIndex}</span>
+                            </div>
                             <span class="badge bg-primary">Block #${doc.blockIndex}</span>
                         </div>
                         <div class="row g-2">
@@ -1058,6 +1186,128 @@
             modal.show();
         }
 
+        function viewFile(filePath, fileName, fileType, uploadedBy) {
+            const nodeMatch = uploadedBy.match(/node-(\d+)/) || uploadedBy.match(/(\d+)/);
+            const nodeNum = nodeMatch ? nodeMatch[1] : '1';
+            const port = 5000 + parseInt(nodeNum);
+            
+            const fileNameFromPath = filePath.split('/').pop();
+            const fileUrl = `${API_BASE}:${port}/uploads/${fileNameFromPath}`;
+            
+            document.getElementById('viewerTitle').innerHTML = `<i class="bi bi-file-earmark"></i> ${fileName}`;
+            
+            const downloadBtn = document.getElementById('downloadBtn');
+            downloadBtn.onclick = () => {
+                const link = document.createElement('a');
+                link.href = fileUrl;
+                link.download = fileName;
+                link.click();
+            };
+            
+            const viewerModal = new bootstrap.Modal(document.getElementById('fileViewerModal'));
+            
+            const documentModal = bootstrap.Modal.getInstance(document.getElementById('documentModal'));
+            if (documentModal) {
+                documentModal.hide();
+            }
+            
+            viewerModal.show();
+            
+            const viewerBody = document.getElementById('fileViewerBody');
+            
+            if (fileType === 'application/pdf') {
+                viewerBody.innerHTML = `
+                    <iframe src="${fileUrl}" class="file-preview" style="width: 100%; height: calc(100vh - 120px);"></iframe>
+                `;
+            } else if (fileType.startsWith('image/')) {
+                viewerBody.innerHTML = `
+                    <div class="d-flex justify-content-center align-items-center p-4" style="height: calc(100vh - 120px); background: #f3f4f6;">
+                        <img src="${fileUrl}" alt="${fileName}" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                    </div>
+                `;
+            } else if (fileType === 'text/plain' || fileType === 'text/html' || fileType === 'application/json') {
+                fetch(fileUrl)
+                    .then(response => response.text())
+                    .then(text => {
+                        viewerBody.innerHTML = `
+                            <div class="p-4">
+                                <pre style="background: #f9fafb; padding: 1.5rem; border-radius: 8px; max-height: calc(100vh - 150px); overflow: auto;"><code>${escapeHtml(text)}</code></pre>
+                            </div>
+                        `;
+                    })
+                    .catch(error => {
+                        showUnsupportedFile(viewerBody, fileName, fileUrl);
+                    });
+            } else if (fileType.includes('word') || fileType.includes('document')) {
+                viewerBody.innerHTML = `
+                    <div class="unsupported-file">
+                        <i class="bi bi-file-word file-icon text-primary"></i>
+                        <h4 class="mt-3">Microsoft Word Document</h4>
+                        <p class="text-muted">${fileName}</p>
+                        <p>Word documents cannot be previewed in the browser.</p>
+                        <button class="btn btn-primary btn-lg" onclick="document.getElementById('downloadBtn').click()">
+                            <i class="bi bi-download"></i> Download to View
+                        </button>
+                    </div>
+                `;
+            } else if (fileType.includes('excel') || fileType.includes('spreadsheet')) {
+                viewerBody.innerHTML = `
+                    <div class="unsupported-file">
+                        <i class="bi bi-file-excel file-icon text-success"></i>
+                        <h4 class="mt-3">Microsoft Excel Document</h4>
+                        <p class="text-muted">${fileName}</p>
+                        <p>Excel documents cannot be previewed in the browser.</p>
+                        <button class="btn btn-success btn-lg" onclick="document.getElementById('downloadBtn').click()">
+                            <i class="bi bi-download"></i> Download to View
+                        </button>
+                    </div>
+                `;
+            } else if (fileType.includes('video/')) {
+                viewerBody.innerHTML = `
+                    <div class="d-flex justify-content-center align-items-center p-4" style="height: calc(100vh - 120px); background: #000;">
+                        <video controls style="max-width: 100%; max-height: 100%;">
+                            <source src="${fileUrl}" type="${fileType}">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                `;
+            } else if (fileType.includes('audio/')) {
+                viewerBody.innerHTML = `
+                    <div class="unsupported-file">
+                        <i class="bi bi-music-note-beamed file-icon text-info"></i>
+                        <h4 class="mt-3">Audio File</h4>
+                        <p class="text-muted">${fileName}</p>
+                        <audio controls class="w-100 mt-3">
+                            <source src="${fileUrl}" type="${fileType}">
+                            Your browser does not support the audio tag.
+                        </audio>
+                    </div>
+                `;
+            } else {
+                showUnsupportedFile(viewerBody, fileName, fileUrl);
+            }
+        }
+
+        function showUnsupportedFile(viewerBody, fileName, fileUrl) {
+            viewerBody.innerHTML = `
+                <div class="unsupported-file">
+                    <i class="bi bi-file-earmark file-icon text-secondary"></i>
+                    <h4 class="mt-3">File Preview Not Available</h4>
+                    <p class="text-muted">${fileName}</p>
+                    <p>This file type cannot be previewed in the browser.</p>
+                    <button class="btn btn-primary btn-lg" onclick="document.getElementById('downloadBtn').click()">
+                        <i class="bi bi-download"></i> Download File
+                    </button>
+                </div>
+            `;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
         function getFileIcon(fileType) {
             if (fileType === 'application/pdf') {
                 return { icon: 'bi-file-pdf-fill', class: 'file-type-pdf' };
@@ -1069,6 +1319,10 @@
                 return { icon: 'bi-file-excel-fill', class: 'file-type-excel' };
             } else if (fileType.startsWith('text/')) {
                 return { icon: 'bi-file-text-fill', class: 'file-type-text' };
+            } else if (fileType.startsWith('video/')) {
+                return { icon: 'bi-file-play-fill', class: 'file-type-default' };
+            } else if (fileType.startsWith('audio/')) {
+                return { icon: 'bi-file-music-fill', class: 'file-type-default' }; 
             } else {
                 return { icon: 'bi-file-earmark-fill', class: 'file-type-default' };
             }
@@ -1098,13 +1352,64 @@
                 }
                 
                 const data = await response.json();
-                
-                // Display blockchain data (simplified for brevity)
-                document.getElementById('blockchainView').innerHTML = `
-                    <div class="alert alert-info">
-                        <strong>Total Blocks:</strong> ${data.count}
+                const html = data.blocks.map((block, idx) => `
+                    <div class="blockchain-block">
+                        <div class="d-flex align-items-start mb-3">
+                            <div class="block-index me-3">${block.index}</div>
+                            <div class="flex-grow-1">
+                                <h5 class="fw-bold mb-1">Block #${block.index}</h5>
+                                <small class="text-muted">
+                                    <i class="bi bi-clock"></i> ${new Date(block.timestamp).toLocaleString()}
+                                </small>
+                                ${block.authority ? `
+                                    <span class="badge bg-primary ms-2">
+                                        <i class="bi bi-shield-check"></i> ${block.authority}
+                                    </span>
+                                ` : ''}
+                            </div>
+                        </div>
+                        
+                        ${block.transactions.length > 0 ? `
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <h6 class="fw-bold">
+                                        <i class="bi bi-box-arrow-in-right text-info"></i> ${block.transactions.length} Transaction(s)
+                                    </h6>
+                                    <ul class="list-unstyled mb-0">
+                                        ${block.transactions.map(tx => `
+                                            <li class="mb-1">
+                                                <i class="bi bi-circle-fill text-primary" style="font-size: 0.5rem;"></i>
+                                                <small>${tx.data?.title || tx.data?.info || 'Transaction'}</small>
+                                            </li>
+                                        `).join('')}
+                                    </ul>
+                                </div>
+                            </div>
+                        ` : ''}
+                        
+                        <div class="mb-2">
+                            <small class="fw-semibold text-muted d-block mb-2">
+                                <i class="bi bi-fingerprint"></i> Block Hash:
+                            </small>
+                            <div class="hash-display">${block.hash}</div>
+                        </div>
+                        
+                        <div>
+                            <small class="fw-semibold text-muted d-block mb-2">
+                                <i class="bi bi-link-45deg"></i> Previous Hash:
+                            </small>
+                            <div class="hash-display">${block.previousHash}</div>
+                        </div>
                     </div>
-                `;
+                    
+                    ${idx < data.blocks.length - 1 ? '<div class="chain-link"></div>' : ''}
+                `).join('');
+                
+                document.getElementById('blockchainView').innerHTML = html || `
+                    <div class="empty-state">
+                        <i class="bi bi-diagram-3"></i>
+                        <h5>No blocks found</h5>`;
+
             } catch (error) {
                 document.getElementById('blockchainView').innerHTML = `
                     <div class="alert alert-danger">
