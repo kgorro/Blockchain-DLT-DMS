@@ -1828,7 +1828,7 @@
         function showDocumentDetails(doc) {
             const modalBody = document.getElementById('modalBody');
             
-            // CRITICAL: Check if current user is admin
+            // Check access level
             const isAdmin = !isGuest && currentUser && currentUser.role === 'admin';
             const isPublic = doc._isPublic || doc.accessControl?.privacyLevel === 'public';
             const isRestricted = doc.metadataOnly || doc._accessLevel === 'metadata';
@@ -1839,10 +1839,19 @@
             // Check if NLP metadata exists
             const hasNLP = doc.nlpMetadata && Object.keys(doc.nlpMetadata).length > 0;
             
+            console.log('📄 Document Details:', {
+                title: doc.title,
+                isAdmin,
+                isPublic,
+                isRestricted,
+                hasFullAccess,
+                hasNLP,
+                nlpMetadata: doc.nlpMetadata
+            });
+            
             let restrictedMessage = '';
             
             if (isAdmin) {
-                // Show admin badge
                 restrictedMessage = `
                     <div class="col-12">
                         <div class="alert alert-info">
@@ -1852,7 +1861,6 @@
                     </div>
                 `;
             } else if (isRestricted && !isPublic) {
-                // Show restriction for non-admin
                 restrictedMessage = `
                     <div class="col-12">
                         <div class="alert alert-warning">
@@ -1881,8 +1889,199 @@
                 `;
             }
             
-            // Rest of your showDocumentDetails code...
-            // (Keep all the NLP sections and other parts the same)
+            // NLP Section - COMPLETE VERSION
+            let nlpSection = '';
+            if (hasNLP && hasFullAccess) {
+                nlpSection = `
+                    <div class="col-12 mt-4">
+                        <h5 class="fw-bold"><i class="bi bi-robot text-primary"></i> AI Analysis & Extracted Content</h5>
+                    </div>
+                    
+                    <!-- KEYWORDS SECTION -->
+                    ${doc.nlpMetadata.keywords && doc.nlpMetadata.keywords.length > 0 ? `
+                    <div class="col-12">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="fw-bold mb-3">
+                                    <i class="bi bi-tags-fill text-primary"></i> 
+                                    Extracted Keywords (${doc.nlpMetadata.keywords.length})
+                                </h6>
+                                <div class="d-flex flex-wrap gap-2">
+                                    ${doc.nlpMetadata.keywords.map((k, idx) => `
+                                        <span class="badge bg-primary" style="font-size: 0.9rem; padding: 0.5rem 0.75rem;">
+                                            ${k.word} 
+                                            <span class="badge bg-light text-dark ms-1">${k.count}</span>
+                                        </span>
+                                    `).join('')}
+                                </div>
+                                <small class="text-muted mt-2 d-block">
+                                    <i class="bi bi-info-circle"></i> Numbers indicate frequency in document
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    <!-- ENTITIES SECTION -->
+                    ${doc.nlpMetadata.entities && (
+                        doc.nlpMetadata.entities.people?.length > 0 || 
+                        doc.nlpMetadata.entities.organizations?.length > 0 || 
+                        doc.nlpMetadata.entities.places?.length > 0 ||
+                        doc.nlpMetadata.entities.dates?.length > 0
+                    ) ? `
+                    <div class="col-12 mt-3">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="fw-bold mb-3">
+                                    <i class="bi bi-person-badge-fill text-success"></i> 
+                                    Named Entities Detected
+                                </h6>
+                                
+                                ${doc.nlpMetadata.entities.people?.length > 0 ? `
+                                    <div class="mb-3">
+                                        <small class="text-muted fw-bold d-block mb-2">
+                                            <i class="bi bi-people-fill"></i> People (${doc.nlpMetadata.entities.people.length}):
+                                        </small>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            ${doc.nlpMetadata.entities.people.map(p => 
+                                                `<span class="badge bg-primary" style="font-size: 0.85rem;">${p}</span>`
+                                            ).join('')}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                                
+                                ${doc.nlpMetadata.entities.organizations?.length > 0 ? `
+                                    <div class="mb-3">
+                                        <small class="text-muted fw-bold d-block mb-2">
+                                            <i class="bi bi-building"></i> Organizations (${doc.nlpMetadata.entities.organizations.length}):
+                                        </small>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            ${doc.nlpMetadata.entities.organizations.map(o => 
+                                                `<span class="badge bg-success" style="font-size: 0.85rem;">${o}</span>`
+                                            ).join('')}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                                
+                                ${doc.nlpMetadata.entities.places?.length > 0 ? `
+                                    <div class="mb-3">
+                                        <small class="text-muted fw-bold d-block mb-2">
+                                            <i class="bi bi-geo-alt-fill"></i> Places (${doc.nlpMetadata.entities.places.length}):
+                                        </small>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            ${doc.nlpMetadata.entities.places.map(p => 
+                                                `<span class="badge bg-info text-dark" style="font-size: 0.85rem;">${p}</span>`
+                                            ).join('')}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                                
+                                ${doc.nlpMetadata.entities.dates?.length > 0 ? `
+                                    <div class="mb-3">
+                                        <small class="text-muted fw-bold d-block mb-2">
+                                            <i class="bi bi-calendar-event"></i> Dates (${doc.nlpMetadata.entities.dates.length}):
+                                        </small>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            ${doc.nlpMetadata.entities.dates.map(d => 
+                                                `<span class="badge bg-warning text-dark" style="font-size: 0.85rem;">${d}</span>`
+                                            ).join('')}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    <!-- SUMMARY SECTION -->
+                    ${doc.nlpMetadata.summary ? `
+                    <div class="col-12 mt-3">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="fw-bold mb-2">
+                                    <i class="bi bi-text-paragraph text-info"></i> Document Summary
+                                </h6>
+                                <p class="mb-0">${doc.nlpMetadata.summary}</p>
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    <!-- TECHNICAL DETAILS -->
+                    <div class="col-12 mt-3">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="fw-bold mb-3">
+                                    <i class="bi bi-gear-fill text-secondary"></i> 
+                                    Processing Details
+                                </h6>
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <small class="text-muted">Extraction Method:</small><br>
+                                        <span class="badge ${doc.nlpMetadata.extractionMethod === 'ocr' ? 'bg-warning text-dark' : 'bg-info'}">
+                                            ${doc.nlpMetadata.extractionMethod === 'ocr' ? '🖼️ OCR Scan' : 
+                                            doc.nlpMetadata.extractionMethod === 'direct' ? '📄 Direct Text' : 
+                                            doc.nlpMetadata.extractionMethod}
+                                        </span>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <small class="text-muted">Pages:</small><br>
+                                        <span class="badge bg-secondary">${doc.nlpMetadata.pageCount || 1}</span>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <small class="text-muted">Word Count:</small><br>
+                                        <span class="badge bg-secondary">${doc.nlpMetadata.wordCount || 0}</span>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <small class="text-muted">Characters:</small><br>
+                                        <span class="badge bg-secondary">${doc.nlpMetadata.characterCount || 0}</span>
+                                    </div>
+                                    
+                                    ${doc.nlpMetadata.language ? `
+                                    <div class="col-md-6">
+                                        <small class="text-muted">Language:</small><br>
+                                        <span class="badge bg-secondary">${doc.nlpMetadata.language}</span>
+                                    </div>
+                                    ` : ''}
+                                    
+                                    ${doc.nlpMetadata.sentiment ? `
+                                    <div class="col-md-6">
+                                        <small class="text-muted">Sentiment:</small><br>
+                                        <span class="badge ${
+                                            doc.nlpMetadata.sentiment === 'positive' ? 'bg-success' :
+                                            doc.nlpMetadata.sentiment === 'negative' ? 'bg-danger' : 'bg-secondary'
+                                        }">
+                                            ${doc.nlpMetadata.sentiment === 'positive' ? '😊 Positive' :
+                                            doc.nlpMetadata.sentiment === 'negative' ? '😞 Negative' : '😐 Neutral'}
+                                        </span>
+                                    </div>
+                                    ` : ''}
+                                    
+                                    ${doc.nlpMetadata.fullTextLength ? `
+                                    <div class="col-12">
+                                        <small class="text-muted">Extracted Text Length:</small><br>
+                                        <span class="badge bg-secondary">${doc.nlpMetadata.fullTextLength} characters extracted</span>
+                                    </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (!hasFullAccess) {
+                nlpSection = `
+                    <div class="col-12 mt-4">
+                        <div class="alert alert-warning">
+                            <i class="bi bi-lock-fill"></i> 
+                            <strong>AI Analysis Restricted</strong><br>
+                            Request access to view NLP analysis and extracted content.
+                        </div>
+                    </div>
+                `;
+            }
             
             modalBody.innerHTML = `
                 <div class="row g-3">
@@ -1922,13 +2121,13 @@
                                             ${doc.accessControl?.privacyLevel?.toUpperCase() || 'CONFIDENTIAL'}
                                         </span>
                                     </div>
-                                    ${doc.referenceNumber ? `
+                                    ${doc.referenceNumber && doc.referenceNumber !== 'N/A' ? `
                                     <div class="col-md-6">
                                         <small class="text-muted">Reference Number:</small><br>
                                         ${doc.referenceNumber}
                                     </div>
                                     ` : ''}
-                                    ${doc.department ? `
+                                    ${doc.department && doc.department !== 'N/A' ? `
                                     <div class="col-md-6">
                                         <small class="text-muted">Department:</small><br>
                                         ${doc.department}
@@ -2026,30 +2225,13 @@
                         </div>
                     `}
                     
-                    ${hasNLP && hasFullAccess ? `
-                        <!-- NLP ANALYSIS (Your complete NLP section here) -->
-                        <div class="col-12 mt-4">
-                            <h5 class="fw-bold"><i class="bi bi-robot text-primary"></i> AI Analysis & Extracted Content</h5>
-                        </div>
-                        
-                        <!-- Include all your NLP sections from the previous code -->
-                        <!-- Keywords, Entities, Summary, Technical Details -->
-                    ` : !hasFullAccess ? `
-                        <div class="col-12 mt-4">
-                            <div class="alert alert-warning">
-                                <i class="bi bi-lock-fill"></i> 
-                                <strong>AI Analysis Restricted</strong><br>
-                                Request access to view NLP analysis and extracted content.
-                            </div>
-                        </div>
-                    ` : ''}
+                    ${nlpSection}
                 </div>
             `;
             
             const modal = new bootstrap.Modal(document.getElementById('documentModal'));
             modal.show();
         }
-
         // Update loadDocuments to rebuild search index
         async function loadDocuments() {
             try {
@@ -2083,13 +2265,25 @@
                 `;
             }
         }
+
         function viewFile(filePath, fileName, fileType, uploadedBy) {
-            const nodeMatch = uploadedBy.match(/node-(\d+)/) || uploadedBy.match(/(\d+)/);
-            const nodeNum = nodeMatch ? nodeMatch[1] : '1';
+            console.log('🔍 Attempting to view file:', { filePath, fileName, fileType, uploadedBy });
+            
+            // If filePath is undefined (sanitized document), we need to construct it
+            if (!filePath) {
+                console.error('❌ File path not available - document may be restricted');
+                alert('File path not available. This document may be restricted or you may not have access.');
+                return;
+            }
+            
+            const nodeMatch = uploadedBy?.match(/node-(\d+)/) || uploadedBy?.match(/(\d+)/) || [null, '1'];
+            const nodeNum = nodeMatch[1] || '1';
             const port = 5000 + parseInt(nodeNum);
             
             const fileNameFromPath = filePath.split('/').pop();
             const fileUrl = `${API_BASE}:${port}/uploads/${fileNameFromPath}`;
+            
+            console.log('📂 File URL:', fileUrl);
             
             document.getElementById('viewerTitle').innerHTML = `<i class="bi bi-file-earmark"></i> ${fileName}`;
             
@@ -2122,69 +2316,10 @@
                         <img src="${fileUrl}" alt="${fileName}" style="max-width: 100%; max-height: 100%; object-fit: contain;">
                     </div>
                 `;
-            } else if (fileType === 'text/plain' || fileType === 'text/html' || fileType === 'application/json') {
-                fetch(fileUrl)
-                    .then(response => response.text())
-                    .then(text => {
-                        viewerBody.innerHTML = `
-                            <div class="p-4">
-                                <pre style="background: #f9fafb; padding: 1.5rem; border-radius: 8px; max-height: calc(100vh - 150px); overflow: auto;"><code>${escapeHtml(text)}</code></pre>
-                            </div>
-                        `;
-                    })
-                    .catch(error => {
-                        showUnsupportedFile(viewerBody, fileName, fileUrl);
-                    });
-            } else if (fileType.includes('word') || fileType.includes('document')) {
-                viewerBody.innerHTML = `
-                    <div class="unsupported-file">
-                        <i class="bi bi-file-word file-icon text-primary"></i>
-                        <h4 class="mt-3">Microsoft Word Document</h4>
-                        <p class="text-muted">${fileName}</p>
-                        <p>Word documents cannot be previewed in the browser.</p>
-                        <button class="btn btn-primary btn-lg" onclick="document.getElementById('downloadBtn').click()">
-                            <i class="bi bi-download"></i> Download to View
-                        </button>
-                    </div>
-                `;
-            } else if (fileType.includes('excel') || fileType.includes('spreadsheet')) {
-                viewerBody.innerHTML = `
-                    <div class="unsupported-file">
-                        <i class="bi bi-file-excel file-icon text-success"></i>
-                        <h4 class="mt-3">Microsoft Excel Document</h4>
-                        <p class="text-muted">${fileName}</p>
-                        <p>Excel documents cannot be previewed in the browser.</p>
-                        <button class="btn btn-success btn-lg" onclick="document.getElementById('downloadBtn').click()">
-                            <i class="bi bi-download"></i> Download to View
-                        </button>
-                    </div>
-                `;
-            } else if (fileType.includes('video/')) {
-                viewerBody.innerHTML = `
-                    <div class="d-flex justify-content-center align-items-center p-4" style="height: calc(100vh - 120px); background: #000;">
-                        <video controls style="max-width: 100%; max-height: 100%;">
-                            <source src="${fileUrl}" type="${fileType}">
-                            Your browser does not support the video tag.
-                        </video>
-                    </div>
-                `;
-            } else if (fileType.includes('audio/')) {
-                viewerBody.innerHTML = `
-                    <div class="unsupported-file">
-                        <i class="bi bi-music-note-beamed file-icon text-info"></i>
-                        <h4 class="mt-3">Audio File</h4>
-                        <p class="text-muted">${fileName}</p>
-                        <audio controls class="w-100 mt-3">
-                            <source src="${fileUrl}" type="${fileType}">
-                            Your browser does not support the audio tag.
-                        </audio>
-                    </div>
-                `;
             } else {
                 showUnsupportedFile(viewerBody, fileName, fileUrl);
             }
         }
-
         function showUnsupportedFile(viewerBody, fileName, fileUrl) {
             viewerBody.innerHTML = `
                 <div class="unsupported-file">

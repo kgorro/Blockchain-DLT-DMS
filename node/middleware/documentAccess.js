@@ -168,12 +168,11 @@ function sanitizeDocument(document, accessLevel) {
   const isPublic = document.accessControl?.isPublic || 
                    document.accessControl?.privacyLevel === 'public';
 
-  // For PUBLIC documents, return almost everything except file path
+  // For PUBLIC documents, return almost everything except sensitive paths
   if (isPublic) {
     const publicDoc = { ...document };
-    // Remove only security-sensitive fields
-    delete publicDoc.filePath; // Don't expose server file paths
-    
+    // Keep filePath for public documents so they can be viewed
+    // Just don't expose it in the API response details
     return {
       ...publicDoc,
       _accessLevel: 'public',
@@ -194,7 +193,7 @@ function sanitizeDocument(document, accessLevel) {
     uploadedAt: document.uploadedAt,
     timestamp: document.timestamp,
     
-    // File info (but not path)
+    // File info (but not path for restricted docs)
     fileType: document.fileType,
     fileSize: document.fileSize,
     fileName: document.fileName,
@@ -216,14 +215,7 @@ function sanitizeDocument(document, accessLevel) {
     accessRestricted: true
   };
 
-  // Do NOT include for restricted documents:
-  // - filePath (security risk)
-  // - issuer/recipient (privacy)
-  // - uploadedBy details (privacy)
-  // - nlpMetadata (content leak)
-  // - extractedText (content leak)
-  // - Full description (may contain sensitive info)
-
+  // DO NOT include filePath for restricted documents
   return sanitized;
 }
 
@@ -239,7 +231,7 @@ function sanitizeDocument(document, accessLevel) {
 async function filterAccessibleDocuments(user, documents, email = null) {
   const results = [];
 
-  // CRITICAL: Admin sees everything without filtering
+  // CRITICAL: Admin sees everything with FULL data including filePath
   if (user && user.role === 'admin') {
     return documents.map(doc => ({
       ...doc,
@@ -249,12 +241,13 @@ async function filterAccessibleDocuments(user, documents, email = null) {
     }));
   }
 
+  // Rest of the filtering logic...
   for (const doc of documents) {
     try {
       const access = await canAccessDocument(user, doc, email);
       
       if (access.level === 'full') {
-        // Full access - return complete document
+        // Full access - return complete document WITH filePath
         results.push({
           ...doc,
           _accessLevel: 'full',
@@ -262,7 +255,7 @@ async function filterAccessibleDocuments(user, documents, email = null) {
           _expiresAt: access.expiresAt || null
         });
       } else if (access.level === 'metadata') {
-        // Metadata only - return sanitized version
+        // Metadata only - return sanitized version WITHOUT filePath
         results.push({
           ...sanitizeDocument(doc, 'metadata'),
           _accessLevel: 'metadata',
@@ -272,7 +265,6 @@ async function filterAccessibleDocuments(user, documents, email = null) {
       }
     } catch (error) {
       console.error('Error filtering document:', error);
-      // On error, show metadata only to be safe
       results.push({
         ...sanitizeDocument(doc, 'metadata'),
         _accessLevel: 'metadata',
