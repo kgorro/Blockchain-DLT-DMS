@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   # MongoDB instances
   mongo1:
@@ -9,6 +11,7 @@ services:
       - mongo1_data:/data/db
     networks:
       - blockchain-network
+    restart: unless-stopped
 
   mongo2:
     image: mongo:7.0
@@ -19,6 +22,7 @@ services:
       - mongo2_data:/data/db
     networks:
       - blockchain-network
+    restart: unless-stopped
 
   mongo3:
     image: mongo:7.0
@@ -29,31 +33,45 @@ services:
       - mongo3_data:/data/db
     networks:
       - blockchain-network
+    restart: unless-stopped
 
   # Blockchain nodes
   node1:
-    build: ./node
+    build: 
+      context: ./node
+      dockerfile: Dockerfile
     container_name: blockchain-node-1
     environment:
       - PORT=5001
       - P2P_PORT=6001
       - NODE_ID=node-1
-      - NODE_TYPE=authority     # ✅ ONLY THIS NODE MINES
+      - NODE_TYPE=authority
       - MONGODB_URI=mongodb://mongo1:27017/blockchain-node1
       - BOOTSTRAP_PEERS=
+      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+      - NODE_ENV=development
     ports:
       - "5001:5001"
       - "6001:6001"
     volumes:
+      - ./node:/app
+      - /app/node_modules  # Prevent host node_modules from overwriting container
       - ./uploads1:/app/uploads
     depends_on:
       - mongo1
     networks:
       - blockchain-network
     restart: unless-stopped
+    # Increase memory limit for OCR processing
+    deploy:
+      resources:
+        limits:
+          memory: 2G
 
   node2:
-    build: ./node
+    build: 
+      context: ./node
+      dockerfile: Dockerfile
     container_name: blockchain-node-2
     environment:
       - PORT=5002
@@ -62,10 +80,14 @@ services:
       - NODE_TYPE=authority
       - MONGODB_URI=mongodb://mongo2:27017/blockchain-node2
       - BOOTSTRAP_PEERS=ws://node1:6001
+      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+      - NODE_ENV=development
     ports:
       - "5002:5002"
       - "6002:6002"
     volumes:
+      - ./node:/app
+      - /app/node_modules
       - ./uploads2:/app/uploads
     depends_on:
       - mongo2
@@ -73,21 +95,31 @@ services:
     networks:
       - blockchain-network
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
 
   node3:
-    build: ./node
+    build: 
+      context: ./node
+      dockerfile: Dockerfile
     container_name: blockchain-node-3
     environment:
       - PORT=5003
       - P2P_PORT=6003
       - NODE_ID=node-3
-      - NODE_TYPE=validator     # ✅ CHANGED: Only validates
+      - NODE_TYPE=authority  # Changed back to authority for 3-node consensus
       - MONGODB_URI=mongodb://mongo3:27017/blockchain-node3
       - BOOTSTRAP_PEERS=ws://node1:6001,ws://node2:6002
+      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+      - NODE_ENV=development
     ports:
       - "5003:5003"
       - "6003:6003"
     volumes:
+      - ./node:/app
+      - /app/node_modules
       - ./uploads3:/app/uploads
     depends_on:
       - mongo3
@@ -96,10 +128,16 @@ services:
     networks:
       - blockchain-network
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
 
   # Frontend UI
   frontend:
-    build: ./frontend
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: blockchain-frontend
     ports:
       - "80:80"

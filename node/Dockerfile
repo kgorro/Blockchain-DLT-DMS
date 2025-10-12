@@ -1,21 +1,38 @@
-FROM node:18-alpine
+FROM node:18-bullseye
 
 WORKDIR /app
 
-# Copy package files
+# Install system dependencies for PDF processing and OCR
+RUN apt-get update && apt-get install -y \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    libtesseract-dev \
+    poppler-utils \
+    graphicsmagick \
+    ghostscript \
+    imagemagick \
+    python3 \
+    build-essential \
+    libcairo2-dev \
+    libpango1.0-dev \
+    libjpeg-dev \
+    libgif-dev \
+    librsvg2-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Fix ImageMagick policy for PDF
+RUN sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /etc/ImageMagick-6/policy.xml || true
+
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Install Node dependencies
+RUN npm install --legacy-peer-deps
 
-# Copy application files
 COPY . .
 
-# Create uploads directory
-RUN mkdir -p uploads
+RUN mkdir -p uploads && chmod 777 uploads
 
-# Expose ports (HTTP and P2P)
 EXPOSE 5001 5002 5003 6001 6002 6003
 
-# Start the node
 CMD ["node", "server.js"]
