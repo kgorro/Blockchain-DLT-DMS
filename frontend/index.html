@@ -555,6 +555,31 @@
                                         <label class="form-label fw-semibold">File <span class="text-danger">*</span></label>
                                         <input type="file" id="file" required class="form-control">
                                     </div>
+                                    <div class="col-md-12">
+                                        <label class="form-label fw-semibold">Privacy Level <span class="text-danger">*</span></label>
+                                        <select id="privacyLevel" class="form-select" required>
+                                            <option value="public">
+                                                🌐 PUBLIC - Anyone can view and download (no login needed)
+                                            </option>
+                                            <option value="confidential" selected>
+                                                🔒 CONFIDENTIAL - Admin only (default) - Others must request
+                                            </option>
+                                            <option value="restricted">
+                                                🔐 RESTRICTED - Specific roles only
+                                            </option>
+                                            <option value="citizen-specific">
+                                                👤 CITIZEN-SPECIFIC - Named individuals only
+                                            </option>
+                                        </select>
+                                        
+                                        <div class="alert alert-info mt-2" id="privacyHelp">
+                                            <small>
+                                                <strong>PUBLIC:</strong> Perfect for announcements, reports, public records. 
+                                                Anyone can view without logging in.
+                                            </small>
+                                        </div>
+                                    </div>
+
                                 </div>
                                 <button type="submit" class="btn btn-primary btn-lg w-100 mt-4">
                                     <i class="bi bi-cloud-upload"></i> Upload to Blockchain
@@ -733,6 +758,60 @@
         </div>
     </div>
 
+    <!-- Loading Overlay -->
+<div id="loadingOverlay" style="display: none;">
+    <style>
+        #loadingOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        
+        .loading-spinner {
+            width: 80px;
+            height: 80px;
+            border: 8px solid #f3f3f3;
+            border-top: 8px solid #6366f1;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            color: white;
+            margin-top: 20px;
+            font-size: 1.2rem;
+            text-align: center;
+        }
+        
+        .loading-subtext {
+            color: #ccc;
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+    </style>
+    
+    <div class="loading-spinner"></div>
+    <div class="loading-text">
+        <i class="bi bi-robot"></i> Processing Document...
+    </div>
+    <div class="loading-subtext" id="loadingSubtext">
+        Running OCR & NLP Analysis
+    </div>
+</div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         const API_BASE = 'http://localhost';
@@ -817,7 +896,8 @@
                 const response = await fetch(`${API_BASE}:5001/api/documents/search/advanced`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        ...getAuthHeaders()
                     },
                     body: JSON.stringify({ query, filters })
                 });
@@ -833,7 +913,8 @@
                     searchInfo.innerHTML = `
                         <strong><i class="bi bi-search"></i> Search Results:</strong> 
                         Found ${data.count} document(s) matching "${query}"
-                        ${Object.keys(filters).some(k => filters[k] && filters[k] !== 'all') ? ' with filters applied' : ''}
+                        ${data.totalMatches > data.count ? ` (${data.totalMatches} total matches, ${data.totalMatches - data.count} restricted)` : ''}
+                        ${Object.values(filters).some(v => v && v !== 'all') ? ' with filters applied' : ''}
                     `;
                     searchInfo.classList.remove('hidden');
                     
@@ -856,6 +937,7 @@
                 alert('Search error: ' + error.message);
             }
         }
+
         // Continue as Guest
         function continueAsGuest() {
             isGuest = true;
@@ -1014,6 +1096,8 @@
             }
         }
 
+        // Update the form submission to include privacy level
+        // Update upload form submission
         document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -1031,6 +1115,46 @@
             formData.append('documentType', document.getElementById('documentType').value);
             formData.append('issuer', document.getElementById('issuer').value);
             formData.append('recipient', document.getElementById('recipient').value);
+            
+            // Privacy controls
+            formData.append('privacyLevel', document.getElementById('privacyLevel').value);
+            
+            const privacyLevel = document.getElementById('privacyLevel').value;
+            
+            if (privacyLevel === 'restricted') {
+                const selectedRoles = Array.from(document.getElementById('allowedRoles').selectedOptions)
+                    .map(option => option.value);
+                formData.append('allowedRoles', JSON.stringify(selectedRoles));
+            }
+            
+            if (privacyLevel === 'citizen-specific') {
+                const emails = document.getElementById('specificCitizens').value
+                    .split(',')
+                    .map(e => e.trim())
+                    .filter(e => e);
+                formData.append('specificCitizens', JSON.stringify(emails));
+            }
+
+            // ===== SHOW LOADING OVERLAY =====
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            const loadingSubtext = document.getElementById('loadingSubtext');
+            loadingOverlay.style.display = 'flex';
+            
+            // Update loading messages
+            const messages = [
+                'Running OCR & NLP Analysis...',
+                'Extracting text from document...',
+                'Analyzing keywords and entities...',
+                'Processing document metadata...',
+                'Adding to blockchain...',
+                'Broadcasting to network...'
+            ];
+            
+            let messageIndex = 0;
+            const messageInterval = setInterval(() => {
+                messageIndex = (messageIndex + 1) % messages.length;
+                loadingSubtext.textContent = messages[messageIndex];
+            }, 3000);
 
             try {
                 const response = await fetch(`${API_BASE}:${port}/api/documents/upload`, {
@@ -1039,22 +1163,37 @@
                     body: formData
                 });
                 
+                // Clear interval
+                clearInterval(messageInterval);
+                
                 const data = await response.json();
                 
                 if (response.status === 401) {
+                    loadingOverlay.style.display = 'none';
                     alert('Session expired. Please login again.');
                     logout();
                     return;
                 }
                 
                 if (data.success) {
+                    // Hide loading
+                    loadingOverlay.style.display = 'none';
+                    
                     document.getElementById('uploadResult').innerHTML = `
                         <div class="alert alert-success">
                             <h5 class="alert-heading"><i class="bi bi-check-circle-fill"></i> Success!</h5>
-                            <p>Document uploaded and transaction broadcasted to the network</p>
+                            <p>Document uploaded with privacy level: <strong>${data.privacyLevel.toUpperCase()}</strong></p>
                             <hr>
                             <p class="mb-0"><strong>Hash:</strong> <code>${data.fileHash.substring(0, 40)}...</code></p>
                             <p class="mb-0"><strong>Pending:</strong> ${data.pendingTransactions} transaction(s)</p>
+                            ${data.nlpMetadata ? `
+                            <p class="mb-0"><strong>Keywords Extracted:</strong> ${data.nlpMetadata.keywords?.length || 0}</p>
+                            <p class="mb-0"><strong>Entities Found:</strong> ${
+                                (data.nlpMetadata.entities?.people?.length || 0) +
+                                (data.nlpMetadata.entities?.organizations?.length || 0) +
+                                (data.nlpMetadata.entities?.places?.length || 0)
+                            }</p>
+                            ` : ''}
                         </div>
                     `;
                     
@@ -1064,6 +1203,9 @@
                     throw new Error(data.error);
                 }
             } catch (error) {
+                clearInterval(messageInterval);
+                loadingOverlay.style.display = 'none';
+                
                 document.getElementById('uploadResult').innerHTML = `
                     <div class="alert alert-danger">
                         <h5 class="alert-heading"><i class="bi bi-x-circle-fill"></i> Error</h5>
@@ -1123,6 +1265,8 @@
             }
         });
 
+        // Update displayDocuments function in index.html
+
         function displayDocuments(filteredDocs = null) {
             const docs = filteredDocs || allDocuments;
             const totalPages = Math.ceil(docs.length / itemsPerPage);
@@ -1145,24 +1289,61 @@
             const html = paginatedDocs.map(doc => {
                 const fileIcon = getFileIcon(doc.fileType);
                 
-                // Get top 5 keywords for preview
-                const keywordsPreview = doc.nlpMetadata?.keywords?.slice(0, 5).map(k => k.word).join(', ') || 'No keywords extracted';
+                // CRITICAL: Check admin status
+                const isAdmin = !isGuest && currentUser && currentUser.role === 'admin';
+                const isPublic = doc._isPublic || doc.accessControl?.privacyLevel === 'public';
+                const isRestricted = doc.metadataOnly || doc._accessLevel === 'metadata';
+                const hasFullAccess = isAdmin || doc._accessLevel === 'full' || !isRestricted || isPublic;
+                const canRequest = doc._canRequest !== false && !isAdmin;
+                
+                // Privacy badge
+                const privacyLevel = doc.accessControl?.privacyLevel || 'confidential';
+                const privacyBadges = {
+                    'public': '<span class="badge bg-success"><i class="bi bi-globe"></i> PUBLIC</span>',
+                    'confidential': '<span class="badge bg-danger"><i class="bi bi-lock-fill"></i> CONFIDENTIAL</span>',
+                    'restricted': '<span class="badge bg-warning text-dark"><i class="bi bi-shield-lock"></i> RESTRICTED</span>',
+                    'citizen-specific': '<span class="badge bg-info"><i class="bi bi-person-lock"></i> PRIVATE</span>'
+                };
                 
                 return `
                 <div class="card document-card mb-3" onclick="showDocumentDetails(${JSON.stringify(doc).replace(/"/g, '&quot;')})">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start mb-3">
                             <div class="d-flex align-items-center flex-grow-1">
+                                ${isRestricted && !hasFullAccess ? '<i class="bi bi-lock-fill text-warning me-2" title="Access Restricted"></i>' : ''}
+                                ${hasFullAccess ? '<i class="bi bi-unlock-fill text-success me-2" title="Full Access"></i>' : ''}
                                 <i class="bi ${fileIcon.icon} file-type-icon ${fileIcon.class}"></i>
                                 <h5 class="fw-bold mb-0">${doc.title}</h5>
                             </div>
-                            <div class="d-flex align-items-center gap-2">
-                                <button class="btn btn-sm btn-view-file" onclick="event.stopPropagation(); viewFile('${doc.filePath}', '${doc.fileName}', '${doc.fileType}', '${doc.uploadedBy || doc.uploadedByRole || 'node-1'}')" title="View File">
-                                    <i class="bi bi-eye"></i> View
-                                </button>
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                ${privacyBadges[privacyLevel] || privacyBadges['confidential']}
+                                
+                                ${hasFullAccess ? `
+                                    <button class="btn btn-sm btn-success" 
+                                            onclick="event.stopPropagation(); viewFile('${doc.filePath}', '${doc.fileName}', '${doc.fileType}', '${doc.uploadedBy || 'node-1'}')" 
+                                            title="View File">
+                                        <i class="bi bi-eye"></i> View
+                                    </button>
+                                    <button class="btn btn-sm btn-primary" 
+                                            onclick="event.stopPropagation(); downloadFile('${doc.filePath}', '${doc.fileName}')" 
+                                            title="Download File">
+                                        <i class="bi bi-download"></i> Download
+                                    </button>
+                                ` : ''}
+                                
+                                ${isRestricted && canRequest && !hasFullAccess ? `
+                                    <button class="btn btn-sm btn-warning" 
+                                            onclick="event.stopPropagation(); showAccessRequestModal('${doc.fileHash}', '${doc.title}', '${doc.category}')"
+                                            title="Request Access">
+                                        <i class="bi bi-key"></i> Request
+                                    </button>
+                                ` : ''}
+                                
                                 <span class="badge bg-primary">Block #${doc.blockIndex}</span>
                             </div>
                         </div>
+                        
+                        <!-- Rest of document card content -->
                         <div class="row g-2">
                             <div class="col-md-4">
                                 <div class="info-row">
@@ -1176,6 +1357,14 @@
                                     <small><strong>Type:</strong> ${doc.documentType}</small>
                                 </div>
                             </div>
+                            <div class="col-md-4">
+                                <div class="info-row">
+                                    <i class="bi bi-calendar"></i>
+                                    <small>${new Date(doc.uploadedAt).toLocaleDateString()}</small>
+                                </div>
+                            </div>
+                            
+                            ${hasFullAccess ? `
                             <div class="col-md-4">
                                 <div class="info-row">
                                     <i class="bi bi-person-badge"></i>
@@ -1194,15 +1383,16 @@
                                     <small><strong>Size:</strong> ${(doc.fileSize / 1024).toFixed(2)} KB</small>
                                 </div>
                             </div>
-                            <div class="col-md-4">
-                                <div class="info-row">
-                                    <i class="bi bi-clock"></i>
-                                    <small>${new Date(doc.uploadedAt).toLocaleDateString()}</small>
+                            ` : `
+                            <div class="col-12">
+                                <div class="alert alert-warning mb-0 py-2">
+                                    <i class="bi bi-info-circle"></i> 
+                                    <small><strong>Confidential</strong> - Full details available after approval</small>
                                 </div>
                             </div>
+                            `}
                             
-                            <!-- ADD KEYWORDS PREVIEW HERE -->
-                            ${doc.nlpMetadata?.keywords && doc.nlpMetadata.keywords.length > 0 ? `
+                            ${hasFullAccess && doc.nlpMetadata?.keywords && doc.nlpMetadata.keywords.length > 0 ? `
                             <div class="col-12 mt-2">
                                 <div class="info-row">
                                     <i class="bi bi-tags"></i>
@@ -1230,6 +1420,24 @@
                 document.getElementById('paginationNav').style.display = 'none';
             }
         }
+        // Add download function
+        function downloadFile(filePath, fileName) {
+            const fileNameFromPath = filePath.split('/').pop();
+            const nodeMatch = filePath.match(/node-(\d+)/) || [null, '1'];
+            const nodeNum = nodeMatch[1];
+            const port = 5000 + parseInt(nodeNum);
+            
+            const fileUrl = `${API_BASE}:${port}/uploads/${fileNameFromPath}`;
+            
+            const link = document.createElement('a');
+            link.href = fileUrl;
+            link.download = fileName;
+            link.target = '_blank';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
         function renderPagination(totalPages, docs) {
             let paginationHtml = '';
             
@@ -1291,221 +1499,77 @@
             });
         }
 
-        // Update the existing search input to use simple search
-document.getElementById('searchInput').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        performAdvancedSearch();
-    }
-});
+    // Update the existing search input to use simple search
+    document.getElementById('searchInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            performAdvancedSearch();
+        }
+    });
 
         // Enhanced document display to show NLP metadata
         function showDocumentDetails(doc) {
             const modalBody = document.getElementById('modalBody');
             
+            // CRITICAL: Check if current user is admin
+            const isAdmin = !isGuest && currentUser && currentUser.role === 'admin';
+            const isPublic = doc._isPublic || doc.accessControl?.privacyLevel === 'public';
+            const isRestricted = doc.metadataOnly || doc._accessLevel === 'metadata';
+            
+            // Admin always has full access
+            const hasFullAccess = isAdmin || doc._accessLevel === 'full' || !isRestricted || isPublic;
+            
             // Check if NLP metadata exists
             const hasNLP = doc.nlpMetadata && Object.keys(doc.nlpMetadata).length > 0;
             
-            let nlpSection = '';
-            if (hasNLP) {
-                nlpSection = `
-                    <div class="col-12 mt-4">
-                        <h5 class="fw-bold"><i class="bi bi-robot text-primary"></i> AI Analysis & Extracted Content</h5>
-                    </div>
-                    
-                    <!-- KEYWORDS SECTION - Now more prominent -->
-                    ${doc.nlpMetadata.keywords && doc.nlpMetadata.keywords.length > 0 ? `
+            let restrictedMessage = '';
+            
+            if (isAdmin) {
+                // Show admin badge
+                restrictedMessage = `
                     <div class="col-12">
-                        <div class="card bg-light">
-                            <div class="card-body">
-                                <h6 class="fw-bold mb-3">
-                                    <i class="bi bi-tags-fill text-primary"></i> 
-                                    Extracted Keywords (${doc.nlpMetadata.keywords.length})
-                                </h6>
-                                <div class="d-flex flex-wrap gap-2">
-                                    ${doc.nlpMetadata.keywords.map((k, idx) => `
-                                        <span class="badge bg-primary" style="font-size: 0.9rem; padding: 0.5rem 0.75rem;">
-                                            ${k.word} 
-                                            <span class="badge bg-light text-dark ms-1">${k.count}</span>
-                                        </span>
-                                    `).join('')}
-                                </div>
-                                <small class="text-muted mt-2 d-block">
-                                    <i class="bi bi-info-circle"></i> Numbers indicate frequency in document
-                                </small>
-                            </div>
-                        </div>
-                    </div>
-                    ` : `
-                    <div class="col-12">
-                        <div class="alert alert-warning">
-                            <i class="bi bi-exclamation-triangle"></i> No keywords were extracted from this document.
-                        </div>
-                    </div>
-                    `}
-                    
-                    <!-- ENTITIES SECTION -->
-                    ${doc.nlpMetadata.entities && (
-                        doc.nlpMetadata.entities.people.length > 0 || 
-                        doc.nlpMetadata.entities.organizations.length > 0 || 
-                        doc.nlpMetadata.entities.places.length > 0 ||
-                        doc.nlpMetadata.entities.dates.length > 0
-                    ) ? `
-                    <div class="col-12 mt-3">
-                        <div class="card bg-light">
-                            <div class="card-body">
-                                <h6 class="fw-bold mb-3">
-                                    <i class="bi bi-person-badge-fill text-success"></i> 
-                                    Named Entities Detected
-                                </h6>
-                                
-                                ${doc.nlpMetadata.entities.people.length > 0 ? `
-                                    <div class="mb-3">
-                                        <small class="text-muted fw-bold d-block mb-2">
-                                            <i class="bi bi-people-fill"></i> People (${doc.nlpMetadata.entities.people.length}):
-                                        </small>
-                                        <div class="d-flex flex-wrap gap-2">
-                                            ${doc.nlpMetadata.entities.people.map(p => 
-                                                `<span class="badge bg-primary" style="font-size: 0.85rem;">${p}</span>`
-                                            ).join('')}
-                                        </div>
-                                    </div>
-                                ` : ''}
-                                
-                                ${doc.nlpMetadata.entities.organizations.length > 0 ? `
-                                    <div class="mb-3">
-                                        <small class="text-muted fw-bold d-block mb-2">
-                                            <i class="bi bi-building"></i> Organizations (${doc.nlpMetadata.entities.organizations.length}):
-                                        </small>
-                                        <div class="d-flex flex-wrap gap-2">
-                                            ${doc.nlpMetadata.entities.organizations.map(o => 
-                                                `<span class="badge bg-success" style="font-size: 0.85rem;">${o}</span>`
-                                            ).join('')}
-                                        </div>
-                                    </div>
-                                ` : ''}
-                                
-                                ${doc.nlpMetadata.entities.places.length > 0 ? `
-                                    <div class="mb-3">
-                                        <small class="text-muted fw-bold d-block mb-2">
-                                            <i class="bi bi-geo-alt-fill"></i> Places (${doc.nlpMetadata.entities.places.length}):
-                                        </small>
-                                        <div class="d-flex flex-wrap gap-2">
-                                            ${doc.nlpMetadata.entities.places.map(p => 
-                                                `<span class="badge bg-info text-dark" style="font-size: 0.85rem;">${p}</span>`
-                                            ).join('')}
-                                        </div>
-                                    </div>
-                                ` : ''}
-                                
-                                ${doc.nlpMetadata.entities.dates.length > 0 ? `
-                                    <div class="mb-3">
-                                        <small class="text-muted fw-bold d-block mb-2">
-                                            <i class="bi bi-calendar-event"></i> Dates (${doc.nlpMetadata.entities.dates.length}):
-                                        </small>
-                                        <div class="d-flex flex-wrap gap-2">
-                                            ${doc.nlpMetadata.entities.dates.map(d => 
-                                                `<span class="badge bg-warning text-dark" style="font-size: 0.85rem;">${d}</span>`
-                                            ).join('')}
-                                        </div>
-                                    </div>
-                                ` : ''}
-                            </div>
-                        </div>
-                    </div>
-                    ` : ''}
-                    
-                    <!-- SUMMARY SECTION -->
-                    ${doc.nlpMetadata.summary ? `
-                    <div class="col-12 mt-3">
-                        <div class="card bg-light">
-                            <div class="card-body">
-                                <h6 class="fw-bold mb-2">
-                                    <i class="bi bi-text-paragraph text-info"></i> Document Summary
-                                </h6>
-                                <p class="mb-0">${doc.nlpMetadata.summary}</p>
-                            </div>
-                        </div>
-                    </div>
-                    ` : ''}
-                    
-                    <!-- TECHNICAL DETAILS -->
-                    <div class="col-12 mt-3">
-                        <div class="card bg-light">
-                            <div class="card-body">
-                                <h6 class="fw-bold mb-3">
-                                    <i class="bi bi-gear-fill text-secondary"></i> 
-                                    Processing Details
-                                </h6>
-                                <div class="row g-2">
-                                    <div class="col-md-6">
-                                        <small class="text-muted">Extraction Method:</small><br>
-                                        <span class="badge ${doc.nlpMetadata.extractionMethod === 'ocr' ? 'bg-warning text-dark' : 'bg-info'}">
-                                            ${doc.nlpMetadata.extractionMethod === 'ocr' ? '🖼️ OCR Scan' : 
-                                            doc.nlpMetadata.extractionMethod === 'direct' ? '📄 Direct Text' : 
-                                            doc.nlpMetadata.extractionMethod}
-                                        </span>
-                                    </div>
-                                    
-                                    <div class="col-md-6">
-                                        <small class="text-muted">Pages:</small><br>
-                                        <span class="badge bg-secondary">${doc.nlpMetadata.pageCount || 1}</span>
-                                    </div>
-                                    
-                                    <div class="col-md-6">
-                                        <small class="text-muted">Word Count:</small><br>
-                                        <span class="badge bg-secondary">${doc.nlpMetadata.wordCount || 0}</span>
-                                    </div>
-                                    
-                                    <div class="col-md-6">
-                                        <small class="text-muted">Characters:</small><br>
-                                        <span class="badge bg-secondary">${doc.nlpMetadata.characterCount || 0}</span>
-                                    </div>
-                                    
-                                    ${doc.nlpMetadata.language ? `
-                                    <div class="col-md-6">
-                                        <small class="text-muted">Language:</small><br>
-                                        <span class="badge bg-secondary">${doc.nlpMetadata.language}</span>
-                                    </div>
-                                    ` : ''}
-                                    
-                                    ${doc.nlpMetadata.sentiment ? `
-                                    <div class="col-md-6">
-                                        <small class="text-muted">Sentiment:</small><br>
-                                        <span class="badge ${
-                                            doc.nlpMetadata.sentiment === 'positive' ? 'bg-success' :
-                                            doc.nlpMetadata.sentiment === 'negative' ? 'bg-danger' : 'bg-secondary'
-                                        }">
-                                            ${doc.nlpMetadata.sentiment === 'positive' ? '😊 Positive' :
-                                            doc.nlpMetadata.sentiment === 'negative' ? '😞 Negative' : '😐 Neutral'}
-                                        </span>
-                                    </div>
-                                    ` : ''}
-                                    
-                                    ${doc.nlpMetadata.fullTextLength ? `
-                                    <div class="col-12">
-                                        <small class="text-muted">Extracted Text Length:</small><br>
-                                        <span class="badge bg-secondary">${doc.nlpMetadata.fullTextLength} characters extracted</span>
-                                    </div>
-                                    ` : ''}
-                                </div>
-                            </div>
+                        <div class="alert alert-info">
+                            <i class="bi bi-shield-check-fill"></i> 
+                            <strong>ADMINISTRATOR ACCESS</strong> - You have full access to all documents
                         </div>
                     </div>
                 `;
-            } else {
-                nlpSection = `
-                    <div class="col-12 mt-4">
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle"></i> 
-                            <strong>No AI analysis available</strong><br>
-                            This document was uploaded before NLP processing was enabled, or text extraction failed.
+            } else if (isRestricted && !isPublic) {
+                // Show restriction for non-admin
+                restrictedMessage = `
+                    <div class="col-12">
+                        <div class="alert alert-warning">
+                            <h5><i class="bi bi-lock-fill"></i> Access Restricted</h5>
+                            <p>This is a confidential document. You can only view basic information.</p>
+                            ${doc._canRequest !== false ? `
+                                <button onclick="showAccessRequestModal('${doc.fileHash}', '${doc.title}', '${doc.category}')" 
+                                        class="btn btn-primary btn-sm">
+                                    <i class="bi bi-key"></i> Request Access to Full Document
+                                </button>
+                                <button onclick="showCheckStatusModal()" class="btn btn-outline-secondary btn-sm ms-2">
+                                    <i class="bi bi-search"></i> Check Existing Request
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            } else if (isPublic) {
+                restrictedMessage = `
+                    <div class="col-12">
+                        <div class="alert alert-success">
+                            <i class="bi bi-unlock-fill"></i> 
+                            <strong>PUBLIC DOCUMENT</strong> - Full access available to everyone
                         </div>
                     </div>
                 `;
             }
             
+            // Rest of your showDocumentDetails code...
+            // (Keep all the NLP sections and other parts the same)
+            
             modalBody.innerHTML = `
                 <div class="row g-3">
+                    ${restrictedMessage}
+                    
                     <!-- DOCUMENT HEADER -->
                     <div class="col-12">
                         <h4 class="fw-bold mb-3">
@@ -1513,7 +1577,7 @@ document.getElementById('searchInput').addEventListener('keypress', (e) => {
                         </h4>
                     </div>
                     
-                    <!-- BASIC INFORMATION -->
+                    <!-- BASIC INFORMATION (Always visible) -->
                     <div class="col-12">
                         <div class="card">
                             <div class="card-body">
@@ -1530,82 +1594,144 @@ document.getElementById('searchInput').addEventListener('keypress', (e) => {
                                         <span class="badge bg-primary">${doc.documentType}</span>
                                     </div>
                                     <div class="col-md-6">
-                                        <small class="text-muted">Issuer:</small><br>
-                                        ${doc.issuer}
+                                        <small class="text-muted">Privacy Level:</small><br>
+                                        <span class="badge ${
+                                            doc.accessControl?.privacyLevel === 'public' ? 'bg-success' :
+                                            doc.accessControl?.privacyLevel === 'confidential' ? 'bg-danger' :
+                                            doc.accessControl?.privacyLevel === 'restricted' ? 'bg-warning text-dark' :
+                                            'bg-info'
+                                        }">
+                                            ${doc.accessControl?.privacyLevel?.toUpperCase() || 'CONFIDENTIAL'}
+                                        </span>
                                     </div>
+                                    ${doc.referenceNumber ? `
                                     <div class="col-md-6">
-                                        <small class="text-muted">Recipient:</small><br>
-                                        ${doc.recipient}
+                                        <small class="text-muted">Reference Number:</small><br>
+                                        ${doc.referenceNumber}
                                     </div>
+                                    ` : ''}
+                                    ${doc.department ? `
+                                    <div class="col-md-6">
+                                        <small class="text-muted">Department:</small><br>
+                                        ${doc.department}
+                                    </div>
+                                    ` : ''}
                                     <div class="col-md-6">
                                         <small class="text-muted">Uploaded:</small><br>
                                         ${new Date(doc.uploadedAt).toLocaleString()}
                                     </div>
                                     <div class="col-md-6">
-                                        <small class="text-muted">Uploaded By:</small><br>
-                                        ${doc.uploadedBy || 'Unknown'} 
-                                        ${doc.uploadedByRole ? `<span class="badge bg-secondary">${doc.uploadedByRole}</span>` : ''}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- FILE DETAILS -->
-                    <div class="col-12">
-                        <div class="card">
-                            <div class="card-body">
-                                <h6 class="fw-bold mb-3">
-                                    <i class="bi bi-file-earmark text-primary"></i> File Details
-                                </h6>
-                                <div class="row g-2">
-                                    <div class="col-md-12">
-                                        <small class="text-muted">Filename:</small><br>
-                                        <code>${doc.fileName}</code>
+                                        <small class="text-muted">File Type:</small><br>
+                                        <span class="badge bg-secondary">${doc.fileType}</span>
                                     </div>
                                     <div class="col-md-6">
                                         <small class="text-muted">File Size:</small><br>
                                         ${(doc.fileSize / 1024).toFixed(2)} KB
                                     </div>
                                     <div class="col-md-6">
-                                        <small class="text-muted">File Type:</small><br>
-                                        <span class="badge bg-secondary">${doc.fileType}</span>
+                                        <small class="text-muted">Filename:</small><br>
+                                        <code>${doc.fileName}</code>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- BLOCKCHAIN DETAILS -->
-                    <div class="col-12">
-                        <div class="card">
-                            <div class="card-body">
-                                <h6 class="fw-bold mb-3">
-                                    <i class="bi bi-shield-lock text-primary"></i> Blockchain Verification
-                                </h6>
-                                <div class="mb-3">
-                                    <small class="text-muted d-block mb-1">Block Number:</small>
-                                    <span class="badge bg-primary" style="font-size: 1rem;">Block #${doc.blockIndex}</span>
-                                </div>
-                                <div class="mb-3">
-                                    <small class="text-muted d-block mb-2">Block Hash:</small>
-                                    <div class="hash-display">${doc.blockHash}</div>
-                                </div>
-                                <div>
-                                    <small class="text-muted d-block mb-2">File Hash (SHA-256):</small>
-                                    <div class="hash-display">${doc.fileHash}</div>
+                    ${hasFullAccess ? `
+                        <!-- FULL DETAILS (Admin, Public, or Approved Access) -->
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="fw-bold mb-3">
+                                        <i class="bi bi-people text-primary"></i> Issuer & Recipient
+                                    </h6>
+                                    <div class="row g-2">
+                                        <div class="col-md-6">
+                                            <small class="text-muted">Issuer:</small><br>
+                                            <strong>${doc.issuer}</strong>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <small class="text-muted">Recipient:</small><br>
+                                            <strong>${doc.recipient}</strong>
+                                        </div>
+                                        ${doc.uploadedBy ? `
+                                        <div class="col-md-6">
+                                            <small class="text-muted">Uploaded By:</small><br>
+                                            ${doc.uploadedBy}
+                                            ${doc.uploadedByRole ? `<span class="badge bg-secondary">${doc.uploadedByRole}</span>` : ''}
+                                        </div>
+                                        ` : ''}
+                                        ${doc.description && doc.description !== 'N/A' ? `
+                                        <div class="col-12">
+                                            <small class="text-muted">Description:</small><br>
+                                            ${doc.description}
+                                        </div>
+                                        ` : ''}
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                        
+                        <!-- BLOCKCHAIN DETAILS -->
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="fw-bold mb-3">
+                                        <i class="bi bi-shield-lock text-primary"></i> Blockchain Verification
+                                    </h6>
+                                    <div class="mb-3">
+                                        <small class="text-muted d-block mb-1">Block Number:</small>
+                                        <span class="badge bg-primary" style="font-size: 1rem;">Block #${doc.blockIndex}</span>
+                                    </div>
+                                    ${doc.blockHash && doc.blockHash !== 'pending' ? `
+                                    <div class="mb-3">
+                                        <small class="text-muted d-block mb-2">Block Hash:</small>
+                                        <div class="hash-display">${doc.blockHash}</div>
+                                    </div>
+                                    ` : ''}
+                                    <div>
+                                        <small class="text-muted d-block mb-2">File Hash (SHA-256):</small>
+                                        <div class="hash-display">${doc.fileHash}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ` : `
+                        <div class="col-12">
+                            <div class="card bg-light">
+                                <div class="card-body text-center py-4">
+                                    <i class="bi bi-lock-fill text-muted" style="font-size: 3rem;"></i>
+                                    <h5 class="mt-3">Full Details Restricted</h5>
+                                    <p class="text-muted">Request access to view complete document information</p>
+                                </div>
+                            </div>
+                        </div>
+                    `}
                     
-                    ${nlpSection}
+                    ${hasNLP && hasFullAccess ? `
+                        <!-- NLP ANALYSIS (Your complete NLP section here) -->
+                        <div class="col-12 mt-4">
+                            <h5 class="fw-bold"><i class="bi bi-robot text-primary"></i> AI Analysis & Extracted Content</h5>
+                        </div>
+                        
+                        <!-- Include all your NLP sections from the previous code -->
+                        <!-- Keywords, Entities, Summary, Technical Details -->
+                    ` : !hasFullAccess ? `
+                        <div class="col-12 mt-4">
+                            <div class="alert alert-warning">
+                                <i class="bi bi-lock-fill"></i> 
+                                <strong>AI Analysis Restricted</strong><br>
+                                Request access to view NLP analysis and extracted content.
+                            </div>
+                        </div>
+                    ` : ''}
                 </div>
             `;
             
             const modal = new bootstrap.Modal(document.getElementById('documentModal'));
             modal.show();
         }
+
         // Update loadDocuments to rebuild search index
         async function loadDocuments() {
             try {

@@ -54,8 +54,8 @@ services:
       - "5001:5001"
       - "6001:6001"
     volumes:
-      - ./node:/app
-      - /app/node_modules  # Prevent host node_modules from overwriting container
+      # - ./node:/app
+      # - /app/node_modules  # Prevent host node_modules from overwriting container
       - ./uploads1:/app/uploads
     depends_on:
       - mongo1
@@ -86,8 +86,8 @@ services:
       - "5002:5002"
       - "6002:6002"
     volumes:
-      - ./node:/app
-      - /app/node_modules
+      # - ./node:/app
+      # - /app/node_modules
       - ./uploads2:/app/uploads
     depends_on:
       - mongo2
@@ -118,8 +118,8 @@ services:
       - "5003:5003"
       - "6003:6003"
     volumes:
-      - ./node:/app
-      - /app/node_modules
+      # - ./node:/app
+      # - /app/node_modules
       - ./uploads3:/app/uploads
     depends_on:
       - mongo3

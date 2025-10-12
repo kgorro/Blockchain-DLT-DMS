@@ -17,6 +17,7 @@
     "tesseract.js": "^5.0.5",
     "pdf-parse": "^1.1.1",
     "natural": "^6.10.0",
-    "stopword": "^2.0.8"
+    "stopword": "^2.0.8",
+    "axios": "^1.6.0"
   }
 }

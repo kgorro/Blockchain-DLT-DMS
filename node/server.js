@@ -16,6 +16,10 @@ const stopword = require('stopword');
 const fs = require('fs').promises;
 const fsSync = require('fs');
 const path = require('path');
+const PublicBlockchainAnchor = require('./anchoring/PublicBlockchainAnchor');
+const AuditLogger = require('./audit/AuditLogger');
+const BackupManager = require('./backup/BackupManager');
+
 // Initialize Express
 const app = express();
 
@@ -36,6 +40,11 @@ const NODE_TYPE = process.env.NODE_TYPE || 'peer';
 const IS_AUTHORITY = NODE_TYPE === 'authority';
 const MONGODB_URI = process.env.MONGODB_URI || `mongodb://localhost:27017/blockchain-${NODE_ID}`;
 const BOOTSTRAP_PEERS = process.env.BOOTSTRAP_PEERS ? process.env.BOOTSTRAP_PEERS.split(',') : [];
+const { 
+  canAccessDocument, 
+  filterAccessibleDocuments,
+  sanitizeDocument 
+} = require('./middleware/documentAccess');
 
 // Mining lock to prevent concurrent mining
 let isMiningInProgress = false;
@@ -44,6 +53,10 @@ let miningTimeout = null;
 // Initialize blockchain and P2P server
 let blockchain;
 let p2pServer;
+// After blockchain initialization
+let publicAnchor;
+let auditLogger;
+let backupManager;
 
 // ============================================
 // NLP & OCR PROCESSING CLASS
@@ -521,6 +534,27 @@ mongoose.connect(MONGODB_URI, {
     blockchain.addAuthority(NODE_ID);
   }
   
+  auditLogger = new AuditLogger(NODE_ID);
+  console.log('✅ Audit logger initialized');
+
+  // Initialize public blockchain anchor
+  publicAnchor = new PublicBlockchainAnchor();
+  await publicAnchor.initialize();
+  
+  // Start periodic anchoring (every hour)
+  if (IS_AUTHORITY) {
+    publicAnchor.startPeriodicAnchoring(blockchain);
+  }
+
+  // Initialize backup manager
+  backupManager = new BackupManager(NODE_ID);
+  await backupManager.initialize();
+  
+  // Start periodic backups (every 6 hours)
+  if (IS_AUTHORITY) {
+    backupManager.startPeriodicBackups(blockchain, 6);
+  }
+
   // Initialize P2P server
   p2pServer = new P2PServer(blockchain, P2P_PORT, NODE_ID);
   p2pServer.listen();
@@ -726,6 +760,10 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 }
 });
 
+// ============================================
+// DOCUMENT UPLOAD API - WITH PRIVACY CONTROLS
+// ============================================
+
 app.post('/api/documents/upload', authenticate, isAdmin, upload.single('file'), async (req, res) => {
   if (!blockchain || !p2pServer) {
     return res.status(503).json({ 
@@ -739,17 +777,68 @@ app.post('/api/documents/upload', authenticate, isAdmin, upload.single('file'), 
       return res.status(400).json({ success: false, error: 'No file uploaded' });
     }
 
-    const { title, category, documentType, issuer, recipient, department, referenceNumber, description } = req.body;
+    const { 
+      title, 
+      category, 
+      documentType, 
+      issuer, 
+      recipient, 
+      department, 
+      referenceNumber, 
+      description,
+      // ===== NEW: PRIVACY CONTROLS =====
+      privacyLevel,        // 'public', 'confidential', 'restricted', 'citizen-specific'
+      allowedRoles,        // JSON string: ['admin', 'department_head', etc.]
+      specificCitizens,    // JSON string: ['citizen@example.com', ...]
+      expiryDate           // When document becomes public (optional)
+    } = req.body;
 
     if (!title) {
       return res.status(400).json({ success: false, error: 'Document title is required' });
+    }
+
+    // ===== NEW: Validate and set privacy level =====
+    const validPrivacyLevels = ['public', 'confidential', 'restricted', 'citizen-specific'];
+    const documentPrivacy = privacyLevel || 'confidential'; // Default to confidential!
+
+    if (!validPrivacyLevels.includes(documentPrivacy)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `Invalid privacy level. Must be one of: ${validPrivacyLevels.join(', ')}` 
+      });
+    }
+
+    // ===== NEW: Parse allowed roles if provided =====
+    let parsedAllowedRoles = ['admin']; // Default: only admin
+    if (allowedRoles) {
+      try {
+        parsedAllowedRoles = JSON.parse(allowedRoles);
+        if (!Array.isArray(parsedAllowedRoles)) {
+          parsedAllowedRoles = ['admin'];
+        }
+      } catch (e) {
+        console.log('⚠️  Invalid allowedRoles format, using default');
+      }
+    }
+
+    // ===== NEW: Parse specific citizens if provided =====
+    let parsedSpecificCitizens = [];
+    if (specificCitizens) {
+      try {
+        parsedSpecificCitizens = JSON.parse(specificCitizens);
+        if (!Array.isArray(parsedSpecificCitizens)) {
+          parsedSpecificCitizens = [];
+        }
+      } catch (e) {
+        console.log('⚠️  Invalid specificCitizens format, using empty array');
+      }
     }
 
     const crypto = require('crypto');
     const fileBuffer = fsSync.readFileSync(req.file.path);
     const fileHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
 
-    // ===== NEW: PROCESS WITH OCR & NLP =====
+    // ===== EXISTING: PROCESS WITH OCR & NLP =====
     console.log('🤖 Processing document with OCR & NLP...');
     const nlpData = await nlpProcessor.processDocument(
       req.file.path,
@@ -780,7 +869,17 @@ app.post('/api/documents/upload', authenticate, isAdmin, upload.single('file'), 
         uploadedByEmail: req.user.email,
         uploadedAt: new Date().toISOString(),
         
-        // ===== NEW: NLP & OCR METADATA =====
+        // ===== NEW: ACCESS CONTROL =====
+        accessControl: {
+          privacyLevel: documentPrivacy,
+          allowedRoles: parsedAllowedRoles,
+          specificCitizens: parsedSpecificCitizens,
+          expiryDate: expiryDate || null,
+          isPublic: documentPrivacy === 'public',
+          requiresAuthentication: documentPrivacy !== 'public'
+        },
+        
+        // ===== EXISTING: NLP & OCR METADATA =====
         nlpMetadata: {
           extractedText: nlpData.extractedText,
           fullTextLength: nlpData.fullTextLength,
@@ -799,9 +898,41 @@ app.post('/api/documents/upload', authenticate, isAdmin, upload.single('file'), 
 
     blockchain.addTransaction(transaction);
     console.log(`📄 Transaction added by ${req.user.username} (${req.user.role})`);
+    console.log(`🔒 Privacy Level: ${documentPrivacy}`);
 
-    // ===== NEW: INDEX FOR SEARCH =====
+    // ===== EXISTING: INDEX FOR SEARCH =====
     nlpProcessor.indexDocument(fileHash, transaction.data);
+
+    // ===== NEW: LOG WITH PRIVACY LEVEL =====
+    if (auditLogger) {
+      await auditLogger.log(
+        'DOCUMENT_UPLOAD',
+        {
+          username: req.user.username,
+          role: req.user.role,
+          email: req.user.email,
+          ip: req.ip,
+          userAgent: req.get('user-agent')
+        },
+        {
+          type: 'document',
+          id: fileHash,
+          name: title
+        },
+        {
+          fileName: req.file.originalname,
+          fileSize: req.file.size,
+          category: category,
+          privacyLevel: documentPrivacy,
+          isPublic: documentPrivacy === 'public',
+          blockchainState: {
+            blockCount: blockchain.chain.length,
+            lastBlockHash: blockchain.chain[blockchain.chain.length - 1]?.hash
+          }
+        },
+        { success: true }
+      );
+    }
 
     p2pServer.broadcastTransaction(transaction);
     console.log('📢 Transaction broadcasted to network');
@@ -812,12 +943,15 @@ app.post('/api/documents/upload', authenticate, isAdmin, upload.single('file'), 
       transaction,
       fileHash,
       uploadedBy: req.user.username,
+      privacyLevel: documentPrivacy, // NEW: Include privacy level in response
+      accessControl: transaction.data.accessControl, // NEW: Include access control
       nlpMetadata: transaction.data.nlpMetadata,
       pendingTransactions: blockchain.pendingTransactions.length,
       miningLeader: blockchain.getMiningLeader(),
       isMyTurn: blockchain.isMyTurnToMine()
     });
 
+    // ===== EXISTING: AUTO-MINING LOGIC =====
     if (IS_AUTHORITY && blockchain.isMyTurnToMine() && !isMiningInProgress) {
       console.log('✅ My turn to mine - scheduling auto-mine');
       
@@ -834,6 +968,29 @@ app.post('/api/documents/upload', authenticate, isAdmin, upload.single('file'), 
 
   } catch (error) {
     console.error('Upload error:', error);
+    
+    // ===== NEW: LOG UPLOAD FAILURE =====
+    if (auditLogger) {
+      await auditLogger.log(
+        'DOCUMENT_UPLOAD_FAILED',
+        {
+          username: req.user.username,
+          role: req.user.role,
+          email: req.user.email,
+          ip: req.ip
+        },
+        {
+          type: 'document',
+          name: req.body.title || 'Unknown'
+        },
+        {
+          error: error.message,
+          fileName: req.file?.originalname
+        },
+        { success: false, error: error.message }
+      );
+    }
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -895,13 +1052,17 @@ app.post('/api/documents/verify', upload.single('file'), async (req, res) => {
 });
 
 
+// Get all documents - filtered by access control
 app.get('/api/documents', async (req, res) => {
   if (!blockchain) {
     return res.status(503).json({ success: false, error: 'Blockchain not initialized yet' });
   }
 
-  const documents = [];
-  const documentHashes = new Set(); // Prevent duplicates
+  const user = req.user || null; // May be guest (null) or authenticated user
+  const email = req.query.email || null; // Optional email for email-based access
+
+  const allDocuments = [];
+  const documentHashes = new Set();
   
   // Get documents from blockchain
   blockchain.chain.forEach(block => {
@@ -909,7 +1070,7 @@ app.get('/api/documents', async (req, res) => {
       if (tx.type === 'document' && tx.data) {
         if (!documentHashes.has(tx.data.fileHash)) {
           documentHashes.add(tx.data.fileHash);
-          documents.push({
+          allDocuments.push({
             ...tx.data,
             blockIndex: block.index,
             blockHash: block.hash,
@@ -921,12 +1082,12 @@ app.get('/api/documents', async (req, res) => {
     });
   });
   
-  // Also check pending transactions (not yet mined)
+  // Also check pending transactions
   blockchain.pendingTransactions.forEach(tx => {
     if (tx.type === 'document' && tx.data) {
       if (!documentHashes.has(tx.data.fileHash)) {
         documentHashes.add(tx.data.fileHash);
-        documents.push({
+        allDocuments.push({
           ...tx.data,
           blockIndex: 'pending',
           blockHash: 'pending',
@@ -937,14 +1098,131 @@ app.get('/api/documents', async (req, res) => {
     }
   });
 
-  console.log(`📄 Found ${documents.length} documents (${blockchain.pendingTransactions.length} pending)`);
+  // CRITICAL: Filter documents based on user access
+  const accessibleDocuments = await filterAccessibleDocuments(user, allDocuments, email);
+
+  // Log access attempt
+  if (auditLogger) {
+    await auditLogger.log(
+      'DOCUMENTS_LIST_ACCESS',
+      {
+        username: user?.username || 'guest',
+        role: user?.role || 'guest',
+        email: user?.email || email || 'anonymous',
+        ip: req.ip
+      },
+      {
+        type: 'document_list',
+        totalDocuments: allDocuments.length,
+        accessibleDocuments: accessibleDocuments.length
+      },
+      {
+        filtered: allDocuments.length - accessibleDocuments.length,
+        withEmail: !!email
+      },
+      { success: true }
+    );
+  }
+
+  console.log(`📄 User ${user?.username || email || 'guest'} accessed ${accessibleDocuments.length}/${allDocuments.length} documents`);
   
   res.json({ 
     success: true, 
-    documents: documents.sort((a, b) => b.timestamp - a.timestamp), // Latest first
-    count: documents.length,
+    documents: accessibleDocuments.sort((a, b) => b.timestamp - a.timestamp),
+    count: accessibleDocuments.length,
+    totalCount: allDocuments.length,
+    accessLevel: user?.role || 'guest',
     chainLength: blockchain.chain.length,
     pendingCount: blockchain.pendingTransactions.length
+  });
+});
+
+// Get single document with access control
+app.get('/api/documents/:fileHash', async (req, res) => {
+  if (!blockchain) {
+    return res.status(503).json({ success: false, error: 'Blockchain not initialized yet' });
+  }
+
+  const { fileHash } = req.params;
+  const user = req.user || null;
+  const email = req.query.email || null;
+
+  // Find document in blockchain
+  let document = null;
+  let blockIndex = null;
+
+  for (const block of blockchain.chain) {
+    for (const tx of block.transactions) {
+      if (tx.type === 'document' && tx.data && tx.data.fileHash === fileHash) {
+        document = {
+          ...tx.data,
+          blockIndex: block.index,
+          blockHash: block.hash,
+          timestamp: tx.timestamp
+        };
+        blockIndex = block.index;
+        break;
+      }
+    }
+    if (document) break;
+  }
+
+  if (!document) {
+    return res.status(404).json({ 
+      success: false, 
+      error: 'Document not found' 
+    });
+  }
+
+  // CHECK ACCESS CONTROL
+  const accessCheck = await canAccessDocument(user, document, email);
+
+  // Log access attempt (success or failure)
+  if (auditLogger) {
+    await auditLogger.log(
+      accessCheck.allowed && accessCheck.level === 'full' ? 'DOCUMENT_ACCESS' : 'DOCUMENT_ACCESS_DENIED',
+      {
+        username: user?.username || 'guest',
+        role: user?.role || 'guest',
+        email: user?.email || email || 'anonymous',
+        ip: req.ip
+      },
+      {
+        type: 'document',
+        id: fileHash,
+        name: document.title
+      },
+      {
+        accessReason: accessCheck.reason,
+        accessLevel: accessCheck.level,
+        privacyLevel: document.accessControl?.privacyLevel || 'unknown'
+      },
+      { success: accessCheck.allowed && accessCheck.level === 'full' }
+    );
+  }
+
+  if (!accessCheck.allowed && accessCheck.level !== 'metadata') {
+    return res.status(403).json({ 
+      success: false, 
+      error: 'Access denied',
+      reason: accessCheck.reason,
+      message: 'You do not have permission to view this document'
+    });
+  }
+
+  // Return document based on access level
+  const returnDoc = accessCheck.level === 'full' 
+    ? document 
+    : sanitizeDocument(document, accessCheck.level);
+
+  res.json({ 
+    success: true, 
+    document: returnDoc,
+    blockIndex,
+    accessLevel: accessCheck.level,
+    accessReason: accessCheck.reason,
+    canRequest: accessCheck.canRequest,
+    expiresAt: accessCheck.expiresAt || null
   });
 });
 
@@ -1001,12 +1279,14 @@ app.post('/api/documents/search/advanced', async (req, res) => {
     const searchResults = nlpProcessor.search(query, filters || {});
 
     // Get full document details for each result
-    const detailedResults = searchResults.map(result => {
+    const detailedResults = [];
+    
+    for (const result of searchResults) {
       // Find the document in blockchain
       for (const block of blockchain.chain) {
         for (const tx of block.transactions) {
           if (tx.type === 'document' && tx.data && tx.data.fileHash === result.docId) {
-            return {
+            const doc = {
               ...tx.data,
               blockIndex: block.index,
               blockHash: block.hash,
@@ -1014,18 +1294,30 @@ app.post('/api/documents/search/advanced', async (req, res) => {
               status: 'confirmed',
               searchScore: result.score
             };
+            
+            // Apply access control
+            const user = req.user || null;
+            const accessCheck = await canAccessDocument(user, doc, null);
+            
+            if (accessCheck.allowed && accessCheck.level === 'full') {
+              detailedResults.push(doc);
+            } else if (accessCheck.level === 'metadata') {
+              // Include metadata-only version
+              detailedResults.push(sanitizeDocument(doc, 'metadata'));
+            }
+            break;
           }
         }
       }
-      return null;
-    }).filter(doc => doc !== null);
+    }
 
-    console.log(`✅ Found ${detailedResults.length} matching documents`);
+    console.log(`✅ Found ${detailedResults.length} matching documents (from ${searchResults.length} total)`);
 
     res.json({
       success: true,
       results: detailedResults,
       count: detailedResults.length,
+      totalMatches: searchResults.length,
       query: query,
       filters: filters
     });
@@ -1060,12 +1352,14 @@ app.get('/api/documents/search', async (req, res) => {
     // Perform search without filters
     const searchResults = nlpProcessor.search(query, {});
 
-    // Get full document details
-    const detailedResults = searchResults.map(result => {
+    // Get full document details with access control
+    const detailedResults = [];
+    
+    for (const result of searchResults) {
       for (const block of blockchain.chain) {
         for (const tx of block.transactions) {
           if (tx.type === 'document' && tx.data && tx.data.fileHash === result.docId) {
-            return {
+            const doc = {
               ...tx.data,
               blockIndex: block.index,
               blockHash: block.hash,
@@ -1073,11 +1367,20 @@ app.get('/api/documents/search', async (req, res) => {
               status: 'confirmed',
               searchScore: result.score
             };
+            
+            const user = req.user || null;
+            const accessCheck = await canAccessDocument(user, doc, null);
+            
+            if (accessCheck.allowed && accessCheck.level === 'full') {
+              detailedResults.push(doc);
+            } else if (accessCheck.level === 'metadata') {
+              detailedResults.push(sanitizeDocument(doc, 'metadata'));
+            }
+            break;
           }
         }
       }
-      return null;
-    }).filter(doc => doc !== null);
+    }
 
     res.json({
       success: true,
@@ -1094,7 +1397,6 @@ app.get('/api/documents/search', async (req, res) => {
     });
   }
 });
-
 // ============================================
 // REBUILD SEARCH INDEX FROM BLOCKCHAIN
 // ============================================
