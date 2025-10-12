@@ -1,0 +1,230 @@
+// routes/users.js
+const express = require('express');
+const router = express.Router();
+const User = require('../models/User');
+const { authenticate, isAdmin } = require('../middleware/auth');
+
+// Get all users (Admin only)
+router.get('/', authenticate, isAdmin, async (req, res) => {
+  try {
+    const users = await User.find()
+      .select('-password')
+      .sort({ createdAt: -1 });
+    
+    res.json({
+      success: true,
+      users,
+      count: users.length
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get single user (Admin only)
+router.get('/:id', authenticate, isAdmin, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('-password');
+    
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+    
+    res.json({ success: true, user });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Create new user (Admin only)
+router.post('/', authenticate, isAdmin, async (req, res) => {
+  try {
+    const {
+      username,
+      email,
+      password,
+      fullName,
+      role,
+      department,
+      phone,
+      citizenId,
+      organization
+    } = req.body;
+
+    // Validate required fields
+    if (!username || !email || !password || !fullName) {
+      return res.status(400).json({
+        success: false,
+        error: 'Username, email, password, and full name are required'
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({
+      $or: [{ username }, { email }]
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        error: 'Username or email already exists'
+      });
+    }
+
+    // Create new user
+    const user = new User({
+      username,
+      email,
+      password,
+      fullName,
+      role: role || 'citizen',
+      department,
+      phone,
+      citizenId,
+      organization,
+      createdBy: req.user.username
+    });
+
+    await user.save();
+
+    // Return user without password
+    const userResponse = user.toObject();
+    delete userResponse.password;
+
+    res.status(201).json({
+      success: true,
+      message: 'User created successfully',
+      user: userResponse
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Update user (Admin only)
+router.put('/:id', authenticate, isAdmin, async (req, res) => {
+  try {
+    const {
+      username,
+      email,
+      fullName,
+      role,
+      department,
+      phone,
+      citizenId,
+      organization,
+      isActive
+    } = req.body;
+
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    // Check if username/email is taken by another user
+    if (username && username !== user.username) {
+      const existingUser = await User.findOne({ username });
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          error: 'Username already exists'
+        });
+      }
+      user.username = username;
+    }
+
+    if (email && email !== user.email) {
+      const existingUser = await User.findOne({ email });
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          error: 'Email already exists'
+        });
+      }
+      user.email = email;
+    }
+
+    // Update other fields
+    if (fullName) user.fullName = fullName;
+    if (role) user.role = role;
+    if (department !== undefined) user.department = department;
+    if (phone !== undefined) user.phone = phone;
+    if (citizenId !== undefined) user.citizenId = citizenId;
+    if (organization !== undefined) user.organization = organization;
+    if (isActive !== undefined) user.isActive = isActive;
+
+    await user.save();
+
+    const userResponse = user.toObject();
+    delete userResponse.password;
+
+    res.json({
+      success: true,
+      message: 'User updated successfully',
+      user: userResponse
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Reset user password (Admin only)
+router.post('/:id/reset-password', authenticate, isAdmin, async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        error: 'Password must be at least 6 characters'
+      });
+    }
+
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Password reset successfully'
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Delete user (Admin only)
+router.delete('/:id', authenticate, isAdmin, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    // Don't allow deleting yourself
+    if (user.username === req.user.username) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot delete your own account'
+      });
+    }
+
+    await User.findByIdAndDelete(req.params.id);
+
+    res.json({
+      success: true,
+      message: 'User deleted successfully'
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+module.exports = router;

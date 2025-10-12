@@ -30,6 +30,9 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 const authRoutes = require('./routes/auth');
 const { authenticate, isAdmin, isCitizen } = require('./middleware/auth');
+// Add after other route imports
+const userRoutes = require('./routes/users');
+app.use('/api/users', userRoutes);
 
 app.use('/api/auth', authRoutes);
 // Configuration from environment
@@ -797,40 +800,52 @@ app.post('/api/documents/upload', authenticate, isAdmin, upload.single('file'), 
       return res.status(400).json({ success: false, error: 'Document title is required' });
     }
 
-    // ===== NEW: Validate and set privacy level =====
     const validPrivacyLevels = ['public', 'confidential', 'restricted', 'citizen-specific'];
-    const documentPrivacy = privacyLevel || 'confidential'; // Default to confidential!
+    const documentPrivacy = privacyLevel || 'confidential';
+
+    console.log('🔒 Received Privacy Level:', documentPrivacy);
+    console.log('🔒 Allowed Roles:', allowedRoles);
+    console.log('🔒 Specific Citizens:', specificCitizens);
 
     if (!validPrivacyLevels.includes(documentPrivacy)) {
+      console.error('❌ Invalid privacy level:', documentPrivacy);
       return res.status(400).json({ 
         success: false, 
-        error: `Invalid privacy level. Must be one of: ${validPrivacyLevels.join(', ')}` 
+        error: `Invalid privacy level: "${documentPrivacy}". Must be one of: ${validPrivacyLevels.join(', ')}` 
       });
     }
 
-    // ===== NEW: Parse allowed roles if provided =====
-    let parsedAllowedRoles = ['admin']; // Default: only admin
-    if (allowedRoles) {
+    // Parse allowed roles with validation
+    let parsedAllowedRoles = ['admin'];
+    if (documentPrivacy === 'restricted' && allowedRoles) {
       try {
         parsedAllowedRoles = JSON.parse(allowedRoles);
-        if (!Array.isArray(parsedAllowedRoles)) {
+        if (!Array.isArray(parsedAllowedRoles) || parsedAllowedRoles.length === 0) {
           parsedAllowedRoles = ['admin'];
+          console.log('⚠️ Invalid allowedRoles, using default [admin]');
+        } else {
+          console.log('✅ Parsed allowed roles:', parsedAllowedRoles);
         }
       } catch (e) {
-        console.log('⚠️  Invalid allowedRoles format, using default');
+        console.log('⚠️ Failed to parse allowedRoles:', e.message);
+        parsedAllowedRoles = ['admin'];
       }
     }
 
-    // ===== NEW: Parse specific citizens if provided =====
+    // Parse specific citizens with validation
     let parsedSpecificCitizens = [];
-    if (specificCitizens) {
+    if (documentPrivacy === 'citizen-specific' && specificCitizens) {
       try {
         parsedSpecificCitizens = JSON.parse(specificCitizens);
         if (!Array.isArray(parsedSpecificCitizens)) {
           parsedSpecificCitizens = [];
+          console.log('⚠️ Invalid specificCitizens format');
+        } else {
+          console.log('✅ Parsed specific citizens:', parsedSpecificCitizens);
         }
       } catch (e) {
-        console.log('⚠️  Invalid specificCitizens format, using empty array');
+        console.log('⚠️ Failed to parse specificCitizens:', e.message);
+        parsedSpecificCitizens = [];
       }
     }
 

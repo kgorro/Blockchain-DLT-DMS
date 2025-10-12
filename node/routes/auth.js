@@ -1,66 +1,117 @@
 // node/routes/auth.js
 const express = require('express');
 const User = require('../models/User');
+const jwt = require('jsonwebtoken');
 const { authenticate, isAdmin, generateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Register new admin (first user only)
+// Citizen self-registration (PUBLIC) - Also allows first admin creation
 router.post('/register', async (req, res) => {
   try {
-    const { username, email, password, fullName } = req.body;
+    const {
+      username,
+      email,
+      password,
+      fullName,
+      phone,
+      citizenId,
+      organization,
+      role // NEW: Accept role parameter
+    } = req.body;
 
+    // Validate required fields
     if (!username || !email || !password || !fullName) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'All fields are required' 
+      return res.status(400).json({
+        success: false,
+        error: 'Username, email, password, and full name are required'
       });
     }
 
-    const existingUser = await User.findOne({ 
-      $or: [{ email }, { username }] 
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        error: 'Password must be at least 6 characters'
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({
+      $or: [{ username }, { email }]
     });
 
     if (existingUser) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Username or email already exists' 
+      return res.status(400).json({
+        success: false,
+        error: 'Username or email already exists'
       });
     }
 
+    // ===== NEW: Check if this is the first user =====
     const userCount = await User.countDocuments();
-    
-    // Only allow admin registration, no citizens
-    if (userCount > 0) {
-      return res.status(403).json({ 
-        success: false, 
-        error: 'Admin registration is closed. Only the first user can register as admin.' 
-      });
+    let userRole = 'citizen'; // Default role
+    let createdBy = 'self-registration';
+
+    if (userCount === 0) {
+      // First user - can be admin
+      userRole = role || 'admin'; // Use provided role or default to admin
+      createdBy = 'first-user-registration';
+      console.log('🎉 Creating FIRST USER with role:', userRole);
+    } else {
+      // Not first user - force citizen role for security
+      userRole = 'citizen';
+      createdBy = 'self-registration';
+      
+      // If someone tries to set admin role after first user, ignore it
+      if (role && role !== 'citizen') {
+        console.log('⚠️  Attempted to register as', role, '- forcing to citizen');
+      }
     }
 
+    // Create new user
     const user = new User({
       username,
       email,
       password,
       fullName,
-      role: 'admin'  // Force admin role
+      role: userRole, // Use determined role
+      phone,
+      citizenId,
+      organization,
+      createdBy: createdBy
     });
 
     await user.save();
-    const token = generateToken(user._id);
+
+    // Generate JWT token
+    const token = jwt.sign(
+      {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    console.log(`✅ User registered: ${username} (${userRole})`);
 
     res.status(201).json({
       success: true,
-      message: 'Admin registered successfully',
-      user: user.getPublicProfile(),
-      token
+      message: 'Registration successful',
+      token,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        fullName: user.fullName,
+        role: user.role
+      }
     });
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

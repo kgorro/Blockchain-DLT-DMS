@@ -388,19 +388,65 @@
                         <input type="password" id="loginPassword" class="form-control" required>
                     </div>
                     <button type="submit" class="btn btn-primary w-100">
-                        <i class="bi bi-shield-lock"></i> Login as Administrator
+                        <i class="bi bi-box-arrow-in-right"></i> Login
                     </button>
                 </form>
 
                 <div class="divider">OR</div>
 
-                <button onclick="continueAsGuest()" class="btn btn-success w-100">
-                    <i class="bi bi-person"></i> Continue as Citizen
+                <button onclick="showRegisterForm()" class="btn btn-success w-100">
+                    <i class="bi bi-person-plus"></i> Register as Citizen
+                </button>
+                
+                <button onclick="continueAsGuest()" class="btn btn-outline-secondary w-100 mt-2">
+                    <i class="bi bi-person"></i> Continue as Guest (View Only)
                 </button>
 
                 <p class="text-center text-muted mt-3 mb-0">
-                    <small>Citizen can verify and view documents</small>
+                    <small>Citizens can register, verify, and access their documents</small>
                 </p>
+            </div>
+            
+            <!-- Registration Form (Hidden) -->
+            <div id="registerSection" class="hidden">
+                <h5 class="text-center mb-3">Citizen Registration</h5>
+                
+                <div id="registerAlert" class="alert hidden"></div>
+                
+                <form id="registerForm">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Username <span class="text-danger">*</span></label>
+                        <input type="text" id="regUsername" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Email <span class="text-danger">*</span></label>
+                        <input type="email" id="regEmail" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Password <span class="text-danger">*</span></label>
+                        <input type="password" id="regPassword" class="form-control" required minlength="6">
+                        <small class="text-muted">Minimum 6 characters</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Full Name <span class="text-danger">*</span></label>
+                        <input type="text" id="regFullName" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Phone</label>
+                        <input type="tel" id="regPhone" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Citizen ID</label>
+                        <input type="text" id="regCitizenId" class="form-control">
+                    </div>
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="bi bi-person-plus"></i> Register
+                    </button>
+                </form>
+                
+                <button onclick="showLoginForm()" class="btn btn-link w-100 mt-2">
+                    ← Back to Login
+                </button>
             </div>
         </div>
     </div>
@@ -505,6 +551,13 @@
                                 <i class="bi bi-diagram-3"></i> Blockchain
                             </button>
                         </li>
+
+                        <li class="nav-item admin-only">
+                            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#users" 
+                                    onclick="loadUsers()">
+                                <i class="bi bi-people"></i> User Management
+                            </button>
+                        </li>
                     </ul>
 
                     <!-- Tab Content -->
@@ -580,6 +633,26 @@
                                         </div>
                                     </div>
 
+                                </div>
+
+                                <!-- Conditional field for RESTRICTED -->
+                                <div id="allowedRolesDiv" class="col-md-12" style="display: none;">
+                                    <label class="form-label fw-semibold">Allowed Roles</label>
+                                    <select id="allowedRoles" class="form-select" multiple size="4">
+                                        <option value="admin">Administrator</option>
+                                        <option value="department_head">Department Head</option>
+                                        <option value="auditor">Auditor</option>
+                                        <option value="legal">Legal Team</option>
+                                    </select>
+                                    <small class="text-muted">Hold Ctrl/Cmd to select multiple roles</small>
+                                </div>
+                                
+                                <!-- Conditional field for CITIZEN-SPECIFIC -->
+                                <div id="specificCitizensDiv" class="col-md-12" style="display: none;">
+                                    <label class="form-label fw-semibold">Citizen Email Addresses</label>
+                                    <input type="text" id="specificCitizens" class="form-control" 
+                                        placeholder="citizen1@example.com, citizen2@example.com">
+                                    <small class="text-muted">Enter email addresses separated by commas</small>
                                 </div>
                                 <button type="submit" class="btn btn-primary btn-lg w-100 mt-4">
                                     <i class="bi bi-cloud-upload"></i> Upload to Blockchain
@@ -703,6 +776,20 @@
                             </nav>
                         </div>
 
+                        <!-- User Management Tab -->
+                        <div class="tab-pane fade admin-only" id="users">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h4 class="mb-0">
+                                    <i class="bi bi-people text-primary"></i> User Management
+                                </h4>
+                                <button onclick="showAddUserModal()" class="btn btn-primary">
+                                    <i class="bi bi-person-plus"></i> Add User
+                                </button>
+                            </div>
+                            
+                            <div id="usersList"></div>
+                        </div>
+
                         <!-- Blockchain Tab - Admin Only -->
                         <div class="tab-pane fade admin-only" id="blockchain">
                             <div class="d-flex justify-content-between align-items-center mb-4">
@@ -721,6 +808,145 @@
         </div>
     </div>
 
+    <!-- Add User Modal -->
+    <div class="modal fade" id="addUserModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-person-plus"></i> Add New User
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addUserForm">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Username <span class="text-danger">*</span></label>
+                            <input type="text" id="newUsername" class="form-control" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Email <span class="text-danger">*</span></label>
+                            <input type="email" id="newEmail" class="form-control" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Password <span class="text-danger">*</span></label>
+                            <input type="password" id="newPassword" class="form-control" required minlength="6">
+                            <small class="text-muted">Minimum 6 characters</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Full Name <span class="text-danger">*</span></label>
+                            <input type="text" id="newFullName" class="form-control" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Role <span class="text-danger">*</span></label>
+                            <select id="newRole" class="form-select" required>
+                                <option value="citizen">Citizen</option>
+                                <option value="department_head">Department Head</option>
+                                <option value="auditor">Auditor</option>
+                                <option value="legal">Legal Team</option>
+                                <option value="admin">Administrator</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Department</label>
+                            <input type="text" id="newDepartment" class="form-control">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Phone</label>
+                            <input type="tel" id="newPhone" class="form-control">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Citizen ID</label>
+                            <input type="text" id="newCitizenId" class="form-control">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Organization</label>
+                            <input type="text" id="newOrganization" class="form-control">
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-person-plus"></i> Create User
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div class="modal fade" id="editUserModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-pencil"></i> Edit User
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editUserForm">
+                        <input type="hidden" id="editUserId">
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Username</label>
+                            <input type="text" id="editUsername" class="form-control" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Email</label>
+                            <input type="email" id="editEmail" class="form-control" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Full Name</label>
+                            <input type="text" id="editFullName" class="form-control" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Role</label>
+                            <select id="editRole" class="form-select" required>
+                                <option value="citizen">Citizen</option>
+                                <option value="department_head">Department Head</option>
+                                <option value="auditor">Auditor</option>
+                                <option value="legal">Legal Team</option>
+                                <option value="admin">Administrator</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Department</label>
+                            <input type="text" id="editDepartment" class="form-control">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Phone</label>
+                            <input type="tel" id="editPhone" class="form-control">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Status</label>
+                            <select id="editIsActive" class="form-select">
+                                <option value="true">Active</option>
+                                <option value="false">Inactive</option>
+                            </select>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-save"></i> Update User
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
     <!-- Document Details Modal -->
     <div class="modal fade" id="documentModal" tabindex="-1">
         <div class="modal-dialog modal-xl">
@@ -946,6 +1172,31 @@
             showMainApp();
         }
 
+        document.getElementById('privacyLevel')?.addEventListener('change', function() {
+            const level = this.value;
+            
+            const allowedRolesDiv = document.getElementById('allowedRolesDiv');
+            const specificCitizensDiv = document.getElementById('specificCitizensDiv');
+            const privacyHelp = document.getElementById('privacyHelp');
+            
+            // Hide all conditional fields first
+            allowedRolesDiv.style.display = 'none';
+            specificCitizensDiv.style.display = 'none';
+            
+            // Show relevant field and update help text
+            if (level === 'public') {
+                privacyHelp.textContent = 'PUBLIC: Anyone can view and download this document without logging in.';
+            } else if (level === 'confidential') {
+                privacyHelp.textContent = 'CONFIDENTIAL: Only administrators can view. Others see metadata only and must request access.';
+            } else if (level === 'restricted') {
+                allowedRolesDiv.style.display = 'block';
+                privacyHelp.textContent = 'RESTRICTED: Only selected roles can view this document.';
+            } else if (level === 'citizen-specific') {
+                specificCitizensDiv.style.display = 'block';
+                privacyHelp.textContent = 'CITIZEN-SPECIFIC: Only the named citizens can view this document.';
+            }
+        });
+
         // Login form handler
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -1096,8 +1347,6 @@
             }
         }
 
-        // Update the form submission to include privacy level
-        // Update upload form submission
         document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -1116,102 +1365,171 @@
             formData.append('issuer', document.getElementById('issuer').value);
             formData.append('recipient', document.getElementById('recipient').value);
             
-            // Privacy controls
-            formData.append('privacyLevel', document.getElementById('privacyLevel').value);
+            // ===== PRIVACY CONTROLS - SAFE VERSION =====
+            const privacyLevelElement = document.getElementById('privacyLevel');
+            const privacyLevel = privacyLevelElement ? privacyLevelElement.value : 'confidential';
+            formData.append('privacyLevel', privacyLevel);
             
-            const privacyLevel = document.getElementById('privacyLevel').value;
+            console.log('📋 Privacy Level:', privacyLevel);
             
+            // Only append allowedRoles if restricted AND element exists
             if (privacyLevel === 'restricted') {
-                const selectedRoles = Array.from(document.getElementById('allowedRoles').selectedOptions)
-                    .map(option => option.value);
-                formData.append('allowedRoles', JSON.stringify(selectedRoles));
+                const allowedRolesElement = document.getElementById('allowedRoles');
+                if (allowedRolesElement) {
+                    const selectedRoles = Array.from(allowedRolesElement.selectedOptions)
+                        .map(option => option.value);
+                    
+                    if (selectedRoles.length > 0) {
+                        formData.append('allowedRoles', JSON.stringify(selectedRoles));
+                        console.log('👥 Allowed Roles:', selectedRoles);
+                    } else {
+                        alert('Please select at least one role for restricted documents.');
+                        return;
+                    }
+                }
             }
             
+            // Only append specificCitizens if citizen-specific AND element exists
             if (privacyLevel === 'citizen-specific') {
-                const emails = document.getElementById('specificCitizens').value
-                    .split(',')
-                    .map(e => e.trim())
-                    .filter(e => e);
-                formData.append('specificCitizens', JSON.stringify(emails));
+                const specificCitizensElement = document.getElementById('specificCitizens');
+                if (specificCitizensElement) {
+                    const emails = specificCitizensElement.value
+                        .split(',')
+                        .map(e => e.trim())
+                        .filter(e => e);
+                    
+                    if (emails.length > 0) {
+                        formData.append('specificCitizens', JSON.stringify(emails));
+                        console.log('📧 Specific Citizens:', emails);
+                    } else {
+                        alert('Please enter at least one email address for citizen-specific documents.');
+                        return;
+                    }
+                }
             }
 
             // ===== SHOW LOADING OVERLAY =====
             const loadingOverlay = document.getElementById('loadingOverlay');
             const loadingSubtext = document.getElementById('loadingSubtext');
-            loadingOverlay.style.display = 'flex';
             
-            // Update loading messages
-            const messages = [
-                'Running OCR & NLP Analysis...',
-                'Extracting text from document...',
-                'Analyzing keywords and entities...',
-                'Processing document metadata...',
-                'Adding to blockchain...',
-                'Broadcasting to network...'
-            ];
-            
-            let messageIndex = 0;
-            const messageInterval = setInterval(() => {
-                messageIndex = (messageIndex + 1) % messages.length;
-                loadingSubtext.textContent = messages[messageIndex];
-            }, 3000);
+            if (!loadingOverlay) {
+                console.error('Loading overlay not found! Please add it to your HTML.');
+            } else {
+                loadingOverlay.style.display = 'flex';
+                
+                // Update loading messages
+                const messages = [
+                    'Running OCR & NLP Analysis...',
+                    'Extracting text from document...',
+                    'Analyzing keywords and entities...',
+                    'Processing document metadata...',
+                    'Adding to blockchain...',
+                    'Broadcasting to network...'
+                ];
+                
+                let messageIndex = 0;
+                const messageInterval = setInterval(() => {
+                    messageIndex = (messageIndex + 1) % messages.length;
+                    if (loadingSubtext) {
+                        loadingSubtext.textContent = messages[messageIndex];
+                    }
+                }, 3000);
 
-            try {
-                const response = await fetch(`${API_BASE}:${port}/api/documents/upload`, {
-                    method: 'POST',
-                    headers: getAuthHeaders(),
-                    body: formData
-                });
-                
-                // Clear interval
-                clearInterval(messageInterval);
-                
-                const data = await response.json();
-                
-                if (response.status === 401) {
+                try {
+                    console.log('📤 Uploading to port:', port);
+                    console.log('📋 FormData contents:');
+                    for (let pair of formData.entries()) {
+                        console.log('  -', pair[0], ':', pair[1]);
+                    }
+                    
+                    const response = await fetch(`${API_BASE}:${port}/api/documents/upload`, {
+                        method: 'POST',
+                        headers: getAuthHeaders(),
+                        body: formData
+                    });
+                    
+                    // Clear interval
+                    clearInterval(messageInterval);
+                    
+                    const data = await response.json();
+                    
+                    console.log('📥 Response:', data);
+                    
+                    if (response.status === 401) {
+                        loadingOverlay.style.display = 'none';
+                        alert('Session expired. Please login again.');
+                        logout();
+                        return;
+                    }
+                    
+                    if (data.success) {
+                        // Hide loading
+                        loadingOverlay.style.display = 'none';
+                        
+                        document.getElementById('uploadResult').innerHTML = `
+                            <div class="alert alert-success">
+                                <h5 class="alert-heading"><i class="bi bi-check-circle-fill"></i> Success!</h5>
+                                <p>Document uploaded successfully!</p>
+                                <p><strong>Privacy Level:</strong> <span class="badge ${
+                                    data.privacyLevel === 'public' ? 'bg-success' :
+                                    data.privacyLevel === 'confidential' ? 'bg-danger' :
+                                    data.privacyLevel === 'restricted' ? 'bg-warning text-dark' :
+                                    'bg-info'
+                                }">${data.privacyLevel.toUpperCase()}</span></p>
+                                <hr>
+                                <p class="mb-0"><strong>Hash:</strong> <code>${data.fileHash.substring(0, 40)}...</code></p>
+                                <p class="mb-0"><strong>Pending:</strong> ${data.pendingTransactions} transaction(s)</p>
+                                ${data.nlpMetadata ? `
+                                <p class="mb-0"><strong>Keywords Extracted:</strong> ${data.nlpMetadata.keywords?.length || 0}</p>
+                                <p class="mb-0"><strong>Entities Found:</strong> ${
+                                    (data.nlpMetadata.entities?.people?.length || 0) +
+                                    (data.nlpMetadata.entities?.organizations?.length || 0) +
+                                    (data.nlpMetadata.entities?.places?.length || 0)
+                                }</p>
+                                <p class="mb-0"><strong>Words:</strong> ${data.nlpMetadata.wordCount || 0}</p>
+                                <p class="mb-0"><strong>Extraction:</strong> ${data.nlpMetadata.extractionMethod || 'N/A'}</p>
+                                ` : ''}
+                            </div>
+                        `;
+                        
+                        document.getElementById('uploadForm').reset();
+                        
+                        // Reset privacy level help text
+                        const privacyHelp = document.getElementById('privacyHelp');
+                        if (privacyHelp) {
+                            privacyHelp.textContent = 'Default: Only administrators can view. Others must request access.';
+                        }
+                        
+                        // Hide conditional fields
+                        const allowedRolesDiv = document.getElementById('allowedRolesDiv');
+                        const specificCitizensDiv = document.getElementById('specificCitizensDiv');
+                        if (allowedRolesDiv) allowedRolesDiv.style.display = 'none';
+                        if (specificCitizensDiv) specificCitizensDiv.style.display = 'none';
+                        
+                        setTimeout(() => {
+                            checkNodeStatus();
+                            // Reload documents if we're on that tab
+                            const documentsTab = document.querySelector('[data-bs-target="#documents"]');
+                            if (documentsTab && documentsTab.classList.contains('active')) {
+                                loadDocuments();
+                            }
+                        }, 2000);
+                    } else {
+                        throw new Error(data.error);
+                    }
+                } catch (error) {
+                    clearInterval(messageInterval);
                     loadingOverlay.style.display = 'none';
-                    alert('Session expired. Please login again.');
-                    logout();
-                    return;
-                }
-                
-                if (data.success) {
-                    // Hide loading
-                    loadingOverlay.style.display = 'none';
+                    
+                    console.error('❌ Upload error:', error);
                     
                     document.getElementById('uploadResult').innerHTML = `
-                        <div class="alert alert-success">
-                            <h5 class="alert-heading"><i class="bi bi-check-circle-fill"></i> Success!</h5>
-                            <p>Document uploaded with privacy level: <strong>${data.privacyLevel.toUpperCase()}</strong></p>
-                            <hr>
-                            <p class="mb-0"><strong>Hash:</strong> <code>${data.fileHash.substring(0, 40)}...</code></p>
-                            <p class="mb-0"><strong>Pending:</strong> ${data.pendingTransactions} transaction(s)</p>
-                            ${data.nlpMetadata ? `
-                            <p class="mb-0"><strong>Keywords Extracted:</strong> ${data.nlpMetadata.keywords?.length || 0}</p>
-                            <p class="mb-0"><strong>Entities Found:</strong> ${
-                                (data.nlpMetadata.entities?.people?.length || 0) +
-                                (data.nlpMetadata.entities?.organizations?.length || 0) +
-                                (data.nlpMetadata.entities?.places?.length || 0)
-                            }</p>
-                            ` : ''}
+                        <div class="alert alert-danger">
+                            <h5 class="alert-heading"><i class="bi bi-x-circle-fill"></i> Error</h5>
+                            <p class="mb-0">${error.message}</p>
                         </div>
                     `;
-                    
-                    document.getElementById('uploadForm').reset();
-                    setTimeout(checkNodeStatus, 2000);
-                } else {
-                    throw new Error(data.error);
                 }
-            } catch (error) {
-                clearInterval(messageInterval);
-                loadingOverlay.style.display = 'none';
-                
-                document.getElementById('uploadResult').innerHTML = `
-                    <div class="alert alert-danger">
-                        <h5 class="alert-heading"><i class="bi bi-x-circle-fill"></i> Error</h5>
-                        <p class="mb-0">${error.message}</p>
-                    </div>
-                `;
             }
         });
 
@@ -1998,7 +2316,318 @@
             }
         }
 
+    // Load users
+    async function loadUsers() {
+        if (isGuest || !currentUser || currentUser.role !== 'admin') return;
         
+        try {
+            const response = await fetch(`${API_BASE}:5001/api/users`, {
+                headers: getAuthHeaders()
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                const html = `
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Full Name</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Department</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.users.map(user => `
+                                    <tr>
+                                        <td><strong>${user.username}</strong></td>
+                                        <td>${user.fullName}</td>
+                                        <td>${user.email}</td>
+                                        <td>
+                                            <span class="badge ${
+                                                user.role === 'admin' ? 'bg-danger' :
+                                                user.role === 'department_head' ? 'bg-primary' :
+                                                user.role === 'auditor' ? 'bg-warning text-dark' :
+                                                user.role === 'legal' ? 'bg-info' :
+                                                'bg-secondary'
+                                            }">
+                                                ${user.role}
+                                            </span>
+                                        </td>
+                                        <td>${user.department || 'N/A'}</td>
+                                        <td>
+                                            <span class="badge ${user.isActive ? 'bg-success' : 'bg-secondary'}">
+                                                ${user.isActive ? 'Active' : 'Inactive'}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <button onclick="showEditUserModal('${user._id}')" class="btn btn-sm btn-primary">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button onclick="resetUserPassword('${user._id}', '${user.username}')" class="btn btn-sm btn-warning">
+                                                <i class="bi bi-key"></i>
+                                            </button>
+                                            ${user.username !== currentUser.username ? `
+                                            <button onclick="deleteUser('${user._id}', '${user.username}')" class="btn btn-sm btn-danger">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                            ` : ''}
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+                
+                document.getElementById('usersList').innerHTML = html;
+            }
+        } catch (error) {
+            document.getElementById('usersList').innerHTML = `
+                <div class="alert alert-danger">
+                    Error loading users: ${error.message}
+                </div>
+            `;
+        }
+    }
+
+    // Show add user modal
+    function showAddUserModal() {
+        const modal = new bootstrap.Modal(document.getElementById('addUserModal'));
+        document.getElementById('addUserForm').reset();
+        modal.show();
+    }
+
+    // Add user form handler
+    document.getElementById('addUserForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const userData = {
+            username: document.getElementById('newUsername').value,
+            email: document.getElementById('newEmail').value,
+            password: document.getElementById('newPassword').value,
+            fullName: document.getElementById('newFullName').value,
+            role: document.getElementById('newRole').value,
+            department: document.getElementById('newDepartment').value,
+            phone: document.getElementById('newPhone').value,
+            citizenId: document.getElementById('newCitizenId').value,
+            organization: document.getElementById('newOrganization').value
+        };
+        
+        try {
+            const response = await fetch(`${API_BASE}:5001/api/users`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                },
+                body: JSON.stringify(userData)
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('User created successfully!');
+                bootstrap.Modal.getInstance(document.getElementById('addUserModal')).hide();
+                loadUsers();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    });
+
+    // Show edit user modal
+    async function showEditUserModal(userId) {
+        try {
+            const response = await fetch(`${API_BASE}:5001/api/users/${userId}`, {
+                headers: getAuthHeaders()
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                document.getElementById('editUserId').value = data.user._id;
+                document.getElementById('editUsername').value = data.user.username;
+                document.getElementById('editEmail').value = data.user.email;
+                document.getElementById('editFullName').value = data.user.fullName;
+                document.getElementById('editRole').value = data.user.role;
+                document.getElementById('editDepartment').value = data.user.department || '';
+                document.getElementById('editPhone').value = data.user.phone || '';
+                document.getElementById('editIsActive').value = data.user.isActive ? 'true' : 'false';
+                
+                const modal = new bootstrap.Modal(document.getElementById('editUserModal'));
+                modal.show();
+            }
+        } catch (error) {
+            alert('Error loading user: ' + error.message);
+        }
+    }
+
+    // Edit user form handler
+    document.getElementById('editUserForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const userId = document.getElementById('editUserId').value;
+        const userData = {
+            username: document.getElementById('editUsername').value,
+            email: document.getElementById('editEmail').value,
+            fullName: document.getElementById('editFullName').value,
+            role: document.getElementById('editRole').value,
+            department: document.getElementById('editDepartment').value,
+            phone: document.getElementById('editPhone').value,
+            isActive: document.getElementById('editIsActive').value === 'true'
+        };
+        
+        try {
+            const response = await fetch(`${API_BASE}:5001/api/users/${userId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                },
+                body: JSON.stringify(userData)
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('User updated successfully!');
+                bootstrap.Modal.getInstance(document.getElementById('editUserModal')).hide();
+                loadUsers();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    });
+
+    // Reset user password
+    async function resetUserPassword(userId, username) {
+        const newPassword = prompt(`Enter new password for ${username} (minimum 6 characters):`);
+        
+        if (!newPassword) return;
+        
+        if (newPassword.length < 6) {
+            alert('Password must be at least 6 characters');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`${API_BASE}:5001/api/users/${userId}/reset-password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                },
+                body: JSON.stringify({ newPassword })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('Password reset successfully!');
+            } else {
+                alert('Error: ' + data.error);
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    }
+
+    // Delete user
+    async function deleteUser(userId, username) {
+        if (!confirm(`Are you sure you want to delete user "${username}"?`)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`${API_BASE}:5001/api/users/${userId}`, {
+                method: 'DELETE',
+                headers: getAuthHeaders()
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('User deleted successfully!');
+                loadUsers();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    }
+
+    // Show registration form
+    function showRegisterForm() {
+        document.getElementById('loginSection').classList.add('hidden');
+        document.getElementById('registerSection').classList.remove('hidden');
+    }
+
+    // Show login form
+    function showLoginForm() {
+        document.getElementById('registerSection').classList.add('hidden');
+        document.getElementById('loginSection').classList.remove('hidden');
+    }
+
+    // Register form handler
+    document.getElementById('registerForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const registerData = {
+            username: document.getElementById('regUsername').value,
+            email: document.getElementById('regEmail').value,
+            password: document.getElementById('regPassword').value,
+            fullName: document.getElementById('regFullName').value,
+            phone: document.getElementById('regPhone').value,
+            citizenId: document.getElementById('regCitizenId').value
+        };
+        
+        try {
+            const response = await fetch(`${API_BASE}:5001/api/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(registerData)
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Auto-login after registration
+                authToken = data.token;
+                currentUser = data.user;
+                isGuest = false;
+                localStorage.setItem('authToken', authToken);
+                localStorage.removeItem('guestMode');
+                
+                showRegisterAlert('Registration successful! Welcome!', 'success');
+                
+                setTimeout(() => {
+                    showMainApp();
+                }, 1500);
+            } else {
+                showRegisterAlert(data.error, 'danger');
+            }
+        } catch (error) {
+            showRegisterAlert('Connection error. Please check if the server is running.', 'danger');
+        }
+    });
+
+    function showRegisterAlert(message, type) {
+        const alert = document.getElementById('registerAlert');
+        alert.textContent = message;
+        alert.className = `alert alert-${type}`;
+        alert.classList.remove('hidden');
+    }
     </script>
 </body>
 </html>

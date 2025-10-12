@@ -44,11 +44,14 @@ Unlike the previous centralized version, this is a **true blockchain**:
 
 ---
 ## Adding Administrator Account
-curl -X POST http://localhost:5001/api/auth/register   -H "Content-Type: application/json"   -d '{
+curl -X POST http://localhost:5001/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
     "username": "admin",
     "email": "admin@example.com",
     "password": "admin123",
-    "fullName": "System Administrator"
+    "fullName": "System Administrator",
+    "role": "admin"
   }'
 
 
