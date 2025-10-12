@@ -597,11 +597,78 @@
                                 </button>
                             </div>
                             
-                            <!-- Search Box -->
-                            <div class="search-box mb-4">
-                                <i class="bi bi-search"></i>
-                                <input type="text" id="searchInput" class="form-control" placeholder="Search by title, category, issuer...">
+                            <!-- Advanced Search Box -->
+                            <div class="card mb-4">
+                                <div class="card-body">
+                                    <h5 class="card-title mb-3">
+                                        <i class="bi bi-search"></i> Advanced Search
+                                        <button class="btn btn-sm btn-outline-secondary float-end" onclick="toggleAdvancedFilters()">
+                                            <i class="bi bi-funnel"></i> <span id="filterToggleText">Show Filters</span>
+                                        </button>
+                                    </h5>
+                                    
+                                    <!-- Search Input -->
+                                    <div class="search-box mb-3">
+                                        <i class="bi bi-search"></i>
+                                        <input type="text" id="searchInput" class="form-control" 
+                                            placeholder="Search by title, keywords, entities, content...">
+                                    </div>
+                                    
+                                    <!-- Advanced Filters (Hidden by default) -->
+                                    <div id="advancedFilters" class="hidden">
+                                        <div class="row g-3">
+                                            <div class="col-md-4">
+                                                <label class="form-label fw-semibold">Category</label>
+                                                <select id="filterCategory" class="form-select">
+                                                    <option value="all">All Categories</option>
+                                                    <option value="administrative">Administrative</option>
+                                                    <option value="academic">Academic</option>
+                                                    <option value="financial">Financial</option>
+                                                    <option value="legal">Legal</option>
+                                                    <option value="personnel">Personnel/HR</option>
+                                                    <option value="correspondence">Correspondence</option>
+                                                    <option value="projects">Projects</option>
+                                                    <option value="others">Others</option>
+                                                </select>
+                                            </div>
+                                            
+                                            <div class="col-md-4">
+                                                <label class="form-label fw-semibold">Date From</label>
+                                                <input type="date" id="filterDateFrom" class="form-control">
+                                            </div>
+                                            
+                                            <div class="col-md-4">
+                                                <label class="form-label fw-semibold">Date To</label>
+                                                <input type="date" id="filterDateTo" class="form-control">
+                                            </div>
+                                            
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-semibold">Issuer</label>
+                                                <input type="text" id="filterIssuer" class="form-control" 
+                                                    placeholder="Filter by issuer name">
+                                            </div>
+                                            
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-semibold">Entity (Person/Place/Org)</label>
+                                                <input type="text" id="filterEntity" class="form-control" 
+                                                    placeholder="Search by mentioned entities">
+                                            </div>
+                                            
+                                            <div class="col-12">
+                                                <button onclick="performAdvancedSearch()" class="btn btn-primary">
+                                                    <i class="bi bi-search"></i> Search
+                                                </button>
+                                                <button onclick="clearFilters()" class="btn btn-outline-secondary">
+                                                    <i class="bi bi-x-circle"></i> Clear Filters
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
+                            
+                            <!-- Search Results Info -->
+                            <div id="searchInfo" class="alert alert-info hidden"></div>
                             
                             <div id="documentsList"></div>
                             
@@ -676,6 +743,10 @@
         let currentUser = null;
         let isGuest = false;
 
+        let currentSearchQuery = '';
+        let currentFilters = {};
+        let isSearchMode = false;
+
         // Check if user is already logged in on page load
         window.onload = () => {
             const token = localStorage.getItem('authToken');
@@ -689,6 +760,102 @@
             }
         };
 
+        // Toggle advanced filters
+        function toggleAdvancedFilters() {
+            const filters = document.getElementById('advancedFilters');
+            const toggleText = document.getElementById('filterToggleText');
+            
+            if (filters.classList.contains('hidden')) {
+                filters.classList.remove('hidden');
+                toggleText.textContent = 'Hide Filters';
+            } else {
+                filters.classList.add('hidden');
+                toggleText.textContent = 'Show Filters';
+            }
+        }
+
+        // Clear all filters
+        function clearFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('filterCategory').value = 'all';
+            document.getElementById('filterDateFrom').value = '';
+            document.getElementById('filterDateTo').value = '';
+            document.getElementById('filterIssuer').value = '';
+            document.getElementById('filterEntity').value = '';
+            
+            currentSearchQuery = '';
+            currentFilters = {};
+            isSearchMode = false;
+            
+            document.getElementById('searchInfo').classList.add('hidden');
+            
+            loadDocuments();
+        }
+
+        // Perform advanced search
+        async function performAdvancedSearch() {
+            const query = document.getElementById('searchInput').value.trim();
+            
+            if (!query) {
+                alert('Please enter a search query');
+                return;
+            }
+            
+            const filters = {
+                category: document.getElementById('filterCategory').value,
+                dateFrom: document.getElementById('filterDateFrom').value,
+                dateTo: document.getElementById('filterDateTo').value,
+                issuer: document.getElementById('filterIssuer').value,
+                entity: document.getElementById('filterEntity').value
+            };
+            
+            currentSearchQuery = query;
+            currentFilters = filters;
+            isSearchMode = true;
+            
+            try {
+                const response = await fetch(`${API_BASE}:5001/api/documents/search/advanced`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ query, filters })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    allDocuments = data.results;
+                    currentPage = 1;
+                    
+                    // Show search info
+                    const searchInfo = document.getElementById('searchInfo');
+                    searchInfo.innerHTML = `
+                        <strong><i class="bi bi-search"></i> Search Results:</strong> 
+                        Found ${data.count} document(s) matching "${query}"
+                        ${Object.keys(filters).some(k => filters[k] && filters[k] !== 'all') ? ' with filters applied' : ''}
+                    `;
+                    searchInfo.classList.remove('hidden');
+                    
+                    if (allDocuments.length === 0) {
+                        document.getElementById('documentsList').innerHTML = `
+                            <div class="empty-state">
+                                <i class="bi bi-search"></i>
+                                <h5>No documents found</h5>
+                                <p>Try adjusting your search query or filters</p>
+                            </div>
+                        `;
+                        document.getElementById('paginationNav').style.display = 'none';
+                    } else {
+                        displayDocuments();
+                    }
+                } else {
+                    alert('Search error: ' + data.error);
+                }
+            } catch (error) {
+                alert('Search error: ' + error.message);
+            }
+        }
         // Continue as Guest
         function continueAsGuest() {
             isGuest = true;
@@ -759,7 +926,7 @@
             // Set user info
             document.getElementById('currentUser').textContent = currentUser.fullName;
             const roleBadge = document.getElementById('roleBadge');
-            roleBadge.textContent = isGuest ? 'GUEST' : currentUser.role.toUpperCase();
+            roleBadge.textContent = isGuest ? 'CITIZEN' : currentUser.role.toUpperCase();
             roleBadge.className = `user-badge ${isGuest ? 'guest' : currentUser.role}`;
 
             document.getElementById('logoutText').textContent = isGuest ? 'Exit' : 'Logout';
@@ -956,37 +1123,6 @@
             }
         });
 
-        async function loadDocuments() {
-            try {
-                const response = await fetch(`${API_BASE}:5001/api/documents`);  // No auth needed - public endpoint
-                const data = await response.json();
-                
-                allDocuments = data.documents.reverse();
-                currentPage = 1;
-                
-                if (allDocuments.length === 0) {
-                    document.getElementById('documentsList').innerHTML = `
-                        <div class="empty-state">
-                            <i class="bi bi-file-earmark-text"></i>
-                            <h5>No documents yet</h5>
-                            <p>No documents have been uploaded to the blockchain yet.</p>
-                        </div>
-                    `;
-                    document.getElementById('paginationNav').style.display = 'none';
-                    return;
-                }
-                
-                displayDocuments();
-                setupSearch();
-            } catch (error) {
-                document.getElementById('documentsList').innerHTML = `
-                    <div class="alert alert-danger">
-                        <i class="bi bi-exclamation-triangle-fill"></i> Error loading documents: ${error.message}
-                    </div>
-                `;
-            }
-        }
-
         function displayDocuments(filteredDocs = null) {
             const docs = filteredDocs || allDocuments;
             const totalPages = Math.ceil(docs.length / itemsPerPage);
@@ -1008,11 +1144,15 @@
             
             const html = paginatedDocs.map(doc => {
                 const fileIcon = getFileIcon(doc.fileType);
+                
+                // Get top 5 keywords for preview
+                const keywordsPreview = doc.nlpMetadata?.keywords?.slice(0, 5).map(k => k.word).join(', ') || 'No keywords extracted';
+                
                 return `
                 <div class="card document-card mb-3" onclick="showDocumentDetails(${JSON.stringify(doc).replace(/"/g, '&quot;')})">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start mb-3">
-                            <div class="d-flex align-items-center">
+                            <div class="d-flex align-items-center flex-grow-1">
                                 <i class="bi ${fileIcon.icon} file-type-icon ${fileIcon.class}"></i>
                                 <h5 class="fw-bold mb-0">${doc.title}</h5>
                             </div>
@@ -1022,7 +1162,6 @@
                                 </button>
                                 <span class="badge bg-primary">Block #${doc.blockIndex}</span>
                             </div>
-                            <span class="badge bg-primary">Block #${doc.blockIndex}</span>
                         </div>
                         <div class="row g-2">
                             <div class="col-md-4">
@@ -1061,6 +1200,22 @@
                                     <small>${new Date(doc.uploadedAt).toLocaleDateString()}</small>
                                 </div>
                             </div>
+                            
+                            <!-- ADD KEYWORDS PREVIEW HERE -->
+                            ${doc.nlpMetadata?.keywords && doc.nlpMetadata.keywords.length > 0 ? `
+                            <div class="col-12 mt-2">
+                                <div class="info-row">
+                                    <i class="bi bi-tags"></i>
+                                    <small>
+                                        <strong>Keywords:</strong> 
+                                        ${doc.nlpMetadata.keywords.slice(0, 5).map(k => 
+                                            `<span class="badge bg-secondary" style="font-size: 0.7rem;">${k.word}</span>`
+                                        ).join(' ')}
+                                        ${doc.nlpMetadata.keywords.length > 5 ? `<span class="text-muted">+${doc.nlpMetadata.keywords.length - 5} more</span>` : ''}
+                                    </small>
+                                </div>
+                            </div>
+                            ` : ''}
                         </div>
                     </div>
                 </div>
@@ -1075,7 +1230,6 @@
                 document.getElementById('paginationNav').style.display = 'none';
             }
         }
-
         function renderPagination(totalPages, docs) {
             let paginationHtml = '';
             
@@ -1137,55 +1291,354 @@
             });
         }
 
+        // Update the existing search input to use simple search
+document.getElementById('searchInput').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        performAdvancedSearch();
+    }
+});
+
+        // Enhanced document display to show NLP metadata
         function showDocumentDetails(doc) {
             const modalBody = document.getElementById('modalBody');
+            
+            // Check if NLP metadata exists
+            const hasNLP = doc.nlpMetadata && Object.keys(doc.nlpMetadata).length > 0;
+            
+            let nlpSection = '';
+            if (hasNLP) {
+                nlpSection = `
+                    <div class="col-12 mt-4">
+                        <h5 class="fw-bold"><i class="bi bi-robot text-primary"></i> AI Analysis & Extracted Content</h5>
+                    </div>
+                    
+                    <!-- KEYWORDS SECTION - Now more prominent -->
+                    ${doc.nlpMetadata.keywords && doc.nlpMetadata.keywords.length > 0 ? `
+                    <div class="col-12">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="fw-bold mb-3">
+                                    <i class="bi bi-tags-fill text-primary"></i> 
+                                    Extracted Keywords (${doc.nlpMetadata.keywords.length})
+                                </h6>
+                                <div class="d-flex flex-wrap gap-2">
+                                    ${doc.nlpMetadata.keywords.map((k, idx) => `
+                                        <span class="badge bg-primary" style="font-size: 0.9rem; padding: 0.5rem 0.75rem;">
+                                            ${k.word} 
+                                            <span class="badge bg-light text-dark ms-1">${k.count}</span>
+                                        </span>
+                                    `).join('')}
+                                </div>
+                                <small class="text-muted mt-2 d-block">
+                                    <i class="bi bi-info-circle"></i> Numbers indicate frequency in document
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    ` : `
+                    <div class="col-12">
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle"></i> No keywords were extracted from this document.
+                        </div>
+                    </div>
+                    `}
+                    
+                    <!-- ENTITIES SECTION -->
+                    ${doc.nlpMetadata.entities && (
+                        doc.nlpMetadata.entities.people.length > 0 || 
+                        doc.nlpMetadata.entities.organizations.length > 0 || 
+                        doc.nlpMetadata.entities.places.length > 0 ||
+                        doc.nlpMetadata.entities.dates.length > 0
+                    ) ? `
+                    <div class="col-12 mt-3">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="fw-bold mb-3">
+                                    <i class="bi bi-person-badge-fill text-success"></i> 
+                                    Named Entities Detected
+                                </h6>
+                                
+                                ${doc.nlpMetadata.entities.people.length > 0 ? `
+                                    <div class="mb-3">
+                                        <small class="text-muted fw-bold d-block mb-2">
+                                            <i class="bi bi-people-fill"></i> People (${doc.nlpMetadata.entities.people.length}):
+                                        </small>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            ${doc.nlpMetadata.entities.people.map(p => 
+                                                `<span class="badge bg-primary" style="font-size: 0.85rem;">${p}</span>`
+                                            ).join('')}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                                
+                                ${doc.nlpMetadata.entities.organizations.length > 0 ? `
+                                    <div class="mb-3">
+                                        <small class="text-muted fw-bold d-block mb-2">
+                                            <i class="bi bi-building"></i> Organizations (${doc.nlpMetadata.entities.organizations.length}):
+                                        </small>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            ${doc.nlpMetadata.entities.organizations.map(o => 
+                                                `<span class="badge bg-success" style="font-size: 0.85rem;">${o}</span>`
+                                            ).join('')}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                                
+                                ${doc.nlpMetadata.entities.places.length > 0 ? `
+                                    <div class="mb-3">
+                                        <small class="text-muted fw-bold d-block mb-2">
+                                            <i class="bi bi-geo-alt-fill"></i> Places (${doc.nlpMetadata.entities.places.length}):
+                                        </small>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            ${doc.nlpMetadata.entities.places.map(p => 
+                                                `<span class="badge bg-info text-dark" style="font-size: 0.85rem;">${p}</span>`
+                                            ).join('')}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                                
+                                ${doc.nlpMetadata.entities.dates.length > 0 ? `
+                                    <div class="mb-3">
+                                        <small class="text-muted fw-bold d-block mb-2">
+                                            <i class="bi bi-calendar-event"></i> Dates (${doc.nlpMetadata.entities.dates.length}):
+                                        </small>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            ${doc.nlpMetadata.entities.dates.map(d => 
+                                                `<span class="badge bg-warning text-dark" style="font-size: 0.85rem;">${d}</span>`
+                                            ).join('')}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    <!-- SUMMARY SECTION -->
+                    ${doc.nlpMetadata.summary ? `
+                    <div class="col-12 mt-3">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="fw-bold mb-2">
+                                    <i class="bi bi-text-paragraph text-info"></i> Document Summary
+                                </h6>
+                                <p class="mb-0">${doc.nlpMetadata.summary}</p>
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    <!-- TECHNICAL DETAILS -->
+                    <div class="col-12 mt-3">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="fw-bold mb-3">
+                                    <i class="bi bi-gear-fill text-secondary"></i> 
+                                    Processing Details
+                                </h6>
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <small class="text-muted">Extraction Method:</small><br>
+                                        <span class="badge ${doc.nlpMetadata.extractionMethod === 'ocr' ? 'bg-warning text-dark' : 'bg-info'}">
+                                            ${doc.nlpMetadata.extractionMethod === 'ocr' ? '🖼️ OCR Scan' : 
+                                            doc.nlpMetadata.extractionMethod === 'direct' ? '📄 Direct Text' : 
+                                            doc.nlpMetadata.extractionMethod}
+                                        </span>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <small class="text-muted">Pages:</small><br>
+                                        <span class="badge bg-secondary">${doc.nlpMetadata.pageCount || 1}</span>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <small class="text-muted">Word Count:</small><br>
+                                        <span class="badge bg-secondary">${doc.nlpMetadata.wordCount || 0}</span>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <small class="text-muted">Characters:</small><br>
+                                        <span class="badge bg-secondary">${doc.nlpMetadata.characterCount || 0}</span>
+                                    </div>
+                                    
+                                    ${doc.nlpMetadata.language ? `
+                                    <div class="col-md-6">
+                                        <small class="text-muted">Language:</small><br>
+                                        <span class="badge bg-secondary">${doc.nlpMetadata.language}</span>
+                                    </div>
+                                    ` : ''}
+                                    
+                                    ${doc.nlpMetadata.sentiment ? `
+                                    <div class="col-md-6">
+                                        <small class="text-muted">Sentiment:</small><br>
+                                        <span class="badge ${
+                                            doc.nlpMetadata.sentiment === 'positive' ? 'bg-success' :
+                                            doc.nlpMetadata.sentiment === 'negative' ? 'bg-danger' : 'bg-secondary'
+                                        }">
+                                            ${doc.nlpMetadata.sentiment === 'positive' ? '😊 Positive' :
+                                            doc.nlpMetadata.sentiment === 'negative' ? '😞 Negative' : '😐 Neutral'}
+                                        </span>
+                                    </div>
+                                    ` : ''}
+                                    
+                                    ${doc.nlpMetadata.fullTextLength ? `
+                                    <div class="col-12">
+                                        <small class="text-muted">Extracted Text Length:</small><br>
+                                        <span class="badge bg-secondary">${doc.nlpMetadata.fullTextLength} characters extracted</span>
+                                    </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                nlpSection = `
+                    <div class="col-12 mt-4">
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> 
+                            <strong>No AI analysis available</strong><br>
+                            This document was uploaded before NLP processing was enabled, or text extraction failed.
+                        </div>
+                    </div>
+                `;
+            }
+            
             modalBody.innerHTML = `
                 <div class="row g-3">
+                    <!-- DOCUMENT HEADER -->
                     <div class="col-12">
-                        <h4 class="fw-bold">${doc.title}</h4>
+                        <h4 class="fw-bold mb-3">
+                            <i class="bi bi-file-earmark-text text-primary"></i> ${doc.title}
+                        </h4>
                     </div>
-                    <div class="col-md-6">
-                        <strong><i class="bi bi-folder text-primary"></i> Category:</strong><br>
-                        ${doc.category}
-                    </div>
-                    <div class="col-md-6">
-                        <strong><i class="bi bi-tag text-primary"></i> Document Type:</strong><br>
-                        ${doc.documentType}
-                    </div>
-                    <div class="col-md-6">
-                        <strong><i class="bi bi-person-badge text-primary"></i> Issuer:</strong><br>
-                        ${doc.issuer}
-                    </div>
-                    <div class="col-md-6">
-                        <strong><i class="bi bi-person-check text-primary"></i> Recipient:</strong><br>
-                        ${doc.recipient}
-                    </div>
+                    
+                    <!-- BASIC INFORMATION -->
                     <div class="col-12">
-                        <strong><i class="bi bi-file-earmark text-primary"></i> File Details:</strong><br>
-                        <span class="badge bg-secondary">${doc.fileName}</span>
-                        <span class="badge bg-secondary">${(doc.fileSize / 1024).toFixed(2)} KB</span>
-                        <span class="badge bg-secondary">${doc.fileType}</span>
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="fw-bold mb-3">
+                                    <i class="bi bi-info-circle text-primary"></i> Basic Information
+                                </h6>
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <small class="text-muted">Category:</small><br>
+                                        <span class="badge bg-primary">${doc.category}</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <small class="text-muted">Document Type:</small><br>
+                                        <span class="badge bg-primary">${doc.documentType}</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <small class="text-muted">Issuer:</small><br>
+                                        ${doc.issuer}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <small class="text-muted">Recipient:</small><br>
+                                        ${doc.recipient}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <small class="text-muted">Uploaded:</small><br>
+                                        ${new Date(doc.uploadedAt).toLocaleString()}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <small class="text-muted">Uploaded By:</small><br>
+                                        ${doc.uploadedBy || 'Unknown'} 
+                                        ${doc.uploadedByRole ? `<span class="badge bg-secondary">${doc.uploadedByRole}</span>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
+                    
+                    <!-- FILE DETAILS -->
                     <div class="col-12">
-                        <strong><i class="bi bi-clock text-primary"></i> Upload Date:</strong><br>
-                        ${new Date(doc.uploadedAt).toLocaleString()}
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="fw-bold mb-3">
+                                    <i class="bi bi-file-earmark text-primary"></i> File Details
+                                </h6>
+                                <div class="row g-2">
+                                    <div class="col-md-12">
+                                        <small class="text-muted">Filename:</small><br>
+                                        <code>${doc.fileName}</code>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <small class="text-muted">File Size:</small><br>
+                                        ${(doc.fileSize / 1024).toFixed(2)} KB
+                                    </div>
+                                    <div class="col-md-6">
+                                        <small class="text-muted">File Type:</small><br>
+                                        <span class="badge bg-secondary">${doc.fileType}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
+                    
+                    <!-- BLOCKCHAIN DETAILS -->
                     <div class="col-12">
-                        <strong><i class="bi bi-box text-primary"></i> Blockchain Details:</strong><br>
-                        <span class="badge bg-primary">Block #${doc.blockIndex}</span>
-                        <span class="badge bg-info text-dark">${doc.blockHash.substring(0, 16)}...</span>
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="fw-bold mb-3">
+                                    <i class="bi bi-shield-lock text-primary"></i> Blockchain Verification
+                                </h6>
+                                <div class="mb-3">
+                                    <small class="text-muted d-block mb-1">Block Number:</small>
+                                    <span class="badge bg-primary" style="font-size: 1rem;">Block #${doc.blockIndex}</span>
+                                </div>
+                                <div class="mb-3">
+                                    <small class="text-muted d-block mb-2">Block Hash:</small>
+                                    <div class="hash-display">${doc.blockHash}</div>
+                                </div>
+                                <div>
+                                    <small class="text-muted d-block mb-2">File Hash (SHA-256):</small>
+                                    <div class="hash-display">${doc.fileHash}</div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-12">
-                        <strong><i class="bi bi-fingerprint text-primary"></i> File Hash:</strong>
-                        <div class="hash-display mt-2">${doc.fileHash}</div>
-                    </div>
+                    
+                    ${nlpSection}
                 </div>
             `;
             
             const modal = new bootstrap.Modal(document.getElementById('documentModal'));
             modal.show();
         }
-
+        // Update loadDocuments to rebuild search index
+        async function loadDocuments() {
+            try {
+                const response = await fetch(`${API_BASE}:5001/api/documents`);
+                const data = await response.json();
+                
+                allDocuments = data.documents.reverse();
+                currentPage = 1;
+                isSearchMode = false;
+                
+                document.getElementById('searchInfo').classList.add('hidden');
+                
+                if (allDocuments.length === 0) {
+                    document.getElementById('documentsList').innerHTML = `
+                        <div class="empty-state">
+                            <i class="bi bi-file-earmark-text"></i>
+                            <h5>No documents yet</h5>
+                            <p>No documents have been uploaded to the blockchain yet.</p>
+                        </div>
+                    `;
+                    document.getElementById('paginationNav').style.display = 'none';
+                    return;
+                }
+                
+                displayDocuments();
+            } catch (error) {
+                document.getElementById('documentsList').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle-fill"></i> Error loading documents: ${error.message}
+                    </div>
+                `;
+            }
+        }
         function viewFile(filePath, fileName, fileType, uploadedBy) {
             const nodeMatch = uploadedBy.match(/node-(\d+)/) || uploadedBy.match(/(\d+)/);
             const nodeNum = nodeMatch ? nodeMatch[1] : '1';
@@ -1418,6 +1871,8 @@
                 `;
             }
         }
+
+        
     </script>
 </body>
 </html>

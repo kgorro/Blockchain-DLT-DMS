@@ -4,11 +4,18 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const multer = require('multer');
-const path = require('path');
-
 const Blockchain = require('./blockchain/Blockchain');
 const P2PServer = require('./p2p/P2PServer');
-
+const Tesseract = require('tesseract.js');
+const pdfParse = require('pdf-parse');
+const { exec } = require('child_process');
+const util = require('util');
+const execPromise = util.promisify(exec);
+const natural = require('natural');
+const stopword = require('stopword');
+const fs = require('fs').promises;
+const fsSync = require('fs');
+const path = require('path');
 // Initialize Express
 const app = express();
 
@@ -38,6 +45,461 @@ let miningTimeout = null;
 let blockchain;
 let p2pServer;
 
+// ============================================
+// NLP & OCR PROCESSING CLASS
+// ============================================
+
+class DocumentNLPProcessor {
+  constructor() {
+    this.tokenizer = new natural.WordTokenizer();
+    this.stemmer = natural.PorterStemmer;
+    this.tfidf = new natural.TfIdf();
+    this.searchIndex = new Map();
+  }
+
+  /**
+   * Extract text from PDF (handles both text and scanned PDFs)
+   */
+  async extractTextFromPDF(filePath) {
+    console.log('📄 Processing PDF...');
+    
+    try {
+      // Try to extract text directly first
+      const dataBuffer = fsSync.readFileSync(filePath);
+      const pdfData = await pdfParse(dataBuffer);
+      
+      // If text extraction returns meaningful content, use it
+      if (pdfData.text && pdfData.text.trim().length > 100) {
+        console.log('✅ Text extracted from PDF (text-based)');
+        return {
+          text: pdfData.text,
+          pages: pdfData.numpages,
+          method: 'direct'
+        };
+      }
+      
+      // Otherwise, it's a scanned PDF - use OCR
+      console.log('🔍 PDF appears to be scanned, running OCR...');
+      return await this.extractTextFromScannedPDF(filePath);
+      
+    } catch (error) {
+      console.error('❌ PDF processing error:', error);
+      return { text: '', pages: 0, method: 'error', error: error.message };
+    }
+  }
+
+  /**
+   * Extract text from scanned PDF using pdftoppm + Tesseract OCR
+   * Uses CLI tools only - no npm packages needed
+   */
+  async extractTextFromScannedPDF(filePath) {
+    console.log('🖼️ Converting PDF pages to images for OCR...');
+    
+    const tempDir = `${filePath}-temp-images`;
+    
+    try {
+      // Create temp directory
+      await fs.mkdir(tempDir, { recursive: true });
+      
+      // Method 1: Try pdftoppm first (most reliable)
+      console.log('   Trying pdftoppm...');
+      const pdftoppmCmd = `pdftoppm -png -r 300 "${filePath}" "${tempDir}/page"`;
+      
+      try {
+        await execPromise(pdftoppmCmd);
+        console.log('   ✅ pdftoppm successful');
+      } catch (pdftoppmError) {
+        console.log('   ❌ pdftoppm failed, trying GraphicsMagick...');
+        
+        // Method 2: Fallback to GraphicsMagick
+        const gmCmd = `gm convert -density 300 "${filePath}" "${tempDir}/page-%03d.png"`;
+        await execPromise(gmCmd);
+        console.log('   ✅ GraphicsMagick successful');
+      }
+      
+      // Get list of generated images
+      const files = await fs.readdir(tempDir);
+      const imageFiles = files.filter(f => f.endsWith('.png')).sort();
+      
+      if (imageFiles.length === 0) {
+        throw new Error('No images generated from PDF');
+      }
+      
+      console.log(`📸 Processing ${imageFiles.length} page(s) with OCR...`);
+      
+      let fullText = '';
+      
+      // Process each page with Tesseract
+      for (let i = 0; i < imageFiles.length; i++) {
+        console.log(`   Processing page ${i + 1}/${imageFiles.length}...`);
+        
+        const imagePath = path.join(tempDir, imageFiles[i]);
+        
+        try {
+          // Run OCR
+          const { data: { text } } = await Tesseract.recognize(imagePath, 'eng', {
+            logger: m => {
+              if (m.status === 'recognizing text') {
+                console.log(`      OCR progress: ${Math.round(m.progress * 100)}%`);
+              }
+            }
+          });
+          
+          fullText += text + '\n\n';
+        } catch (ocrError) {
+          console.error(`   Error OCR on page ${i + 1}:`, ocrError.message);
+        }
+      }
+      
+      // Clean up temporary images
+      console.log('🧹 Cleaning up temporary files...');
+      for (const file of imageFiles) {
+        try {
+          await fs.unlink(path.join(tempDir, file));
+        } catch (e) {
+          // Ignore
+        }
+      }
+      await fs.rmdir(tempDir);
+      
+      console.log('✅ OCR completed');
+      
+      return {
+        text: fullText,
+        pages: imageFiles.length,
+        method: 'ocr'
+      };
+      
+    } catch (error) {
+      console.error('❌ OCR processing error:', error);
+      
+      // Clean up on error
+      try {
+        const files = await fs.readdir(tempDir);
+        for (const file of files) {
+          await fs.unlink(path.join(tempDir, file));
+        }
+        await fs.rmdir(tempDir);
+      } catch (cleanupError) {
+        // Ignore cleanup errors
+      }
+      
+      return { text: '', pages: 0, method: 'error', error: error.message };
+    }
+  }
+
+  /**
+   * Extract text from image using OCR
+   */
+  async extractTextFromImage(filePath) {
+    console.log('🖼️ Running OCR on image...');
+    
+    try {
+      const { data: { text } } = await Tesseract.recognize(filePath, 'eng', {
+        logger: m => {
+          if (m.status === 'recognizing text') {
+            console.log(`   OCR progress: ${Math.round(m.progress * 100)}%`);
+          }
+        }
+      });
+      
+      console.log('✅ OCR completed');
+      
+      return {
+        text: text,
+        pages: 1,
+        method: 'ocr'
+      };
+      
+    } catch (error) {
+      console.error('❌ Image OCR error:', error);
+      return { text: '', pages: 1, method: 'error', error: error.message };
+    }
+  }
+
+  /**
+   * Process document and extract metadata
+   */
+  async processDocument(filePath, fileType, fileName) {
+    let extractedText = '';
+    let extractionMethod = 'none';
+    let pageCount = 0;
+    
+    try {
+      // Extract text based on file type
+      if (fileType === 'application/pdf') {
+        const result = await this.extractTextFromPDF(filePath);
+        extractedText = result.text;
+        extractionMethod = result.method;
+        pageCount = result.pages;
+      } else if (fileType.startsWith('image/')) {
+        const result = await this.extractTextFromImage(filePath);
+        extractedText = result.text;
+        extractionMethod = result.method;
+        pageCount = result.pages;
+      } else if (fileType.startsWith('text/')) {
+        extractedText = await fs.readFile(filePath, 'utf-8');
+        extractionMethod = 'direct';
+        pageCount = 1;
+      }
+
+      // Extract NLP metadata
+      const metadata = this.extractNLPMetadata(extractedText, fileName);
+      
+      return {
+        extractedText: extractedText.substring(0, 10000),
+        fullTextLength: extractedText.length,
+        extractionMethod,
+        pageCount,
+        ...metadata
+      };
+    } catch (error) {
+      console.error('Document processing error:', error);
+      return {
+        extractedText: '',
+        fullTextLength: 0,
+        extractionMethod: 'error',
+        pageCount: 0,
+        keywords: [],
+        entities: { people: [], places: [], organizations: [], dates: [] },
+        summary: '',
+        language: 'unknown',
+        sentiment: 'neutral',
+        wordCount: 0,
+        characterCount: 0,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Extract NLP metadata from text
+   */
+  extractNLPMetadata(text, fileName) {
+    if (!text || text.trim().length === 0) {
+      return {
+        keywords: [],
+        entities: { people: [], places: [], organizations: [], dates: [] },
+        summary: '',
+        language: 'unknown',
+        sentiment: 'neutral',
+        wordCount: 0,
+        characterCount: 0
+      };
+    }
+
+    const keywords = this.extractKeywords(text);
+    const entities = this.extractEntitiesSimple(text);
+    const sentences = text.match(/[^\.!\?]+[\.!\?]+/g) || [];
+    const summary = sentences.slice(0, 3).join(' ').substring(0, 500);
+    const language = this.detectLanguage(text);
+    const sentiment = this.analyzeSentiment(text);
+    
+    return {
+      keywords,
+      entities,
+      summary,
+      language,
+      sentiment,
+      wordCount: text.split(/\s+/).length,
+      characterCount: text.length
+    };
+  }
+
+  /**
+   * Simple entity extraction using regex
+   */
+  extractEntitiesSimple(text) {
+    const datePattern = /\b\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}\b|\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b/gi;
+    const dates = [...new Set(text.match(datePattern) || [])].slice(0, 10);
+    
+    const capitalizedPattern = /\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b/g;
+    const capitalized = [...new Set(text.match(capitalizedPattern) || [])]
+      .filter(word => word.length > 3)
+      .slice(0, 20);
+    
+    const people = capitalized.filter(w => 
+      /\b(Mr|Mrs|Ms|Dr|Prof)\b/.test(text.substring(Math.max(0, text.indexOf(w) - 10), text.indexOf(w)))
+    ).slice(0, 10);
+    
+    const organizations = capitalized.filter(w => 
+      /\b(Inc|Corp|LLC|Ltd|Company|University|Department|Office|Bureau|Agency)\b/.test(w)
+    ).slice(0, 10);
+    
+    const places = capitalized.filter(w => 
+      !people.includes(w) && !organizations.includes(w)
+    ).slice(0, 10);
+    
+    return { people, places, organizations, dates };
+  }
+
+  /**
+   * Extract keywords using TF-IDF
+   */
+  extractKeywords(text, topN = 15) {
+    try {
+      let tokens = this.tokenizer.tokenize(text.toLowerCase());
+      tokens = stopword.removeStopwords(tokens);
+      tokens = tokens.filter(t => t.length > 3 && /^[a-z]+$/.test(t));
+      tokens = tokens.map(t => this.stemmer.stem(t));
+      
+      const frequency = {};
+      tokens.forEach(token => {
+        frequency[token] = (frequency[token] || 0) + 1;
+      });
+      
+      const sorted = Object.entries(frequency)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, topN)
+        .map(([word, count]) => ({ word, count }));
+      
+      return sorted;
+    } catch (error) {
+      console.error('Keyword extraction error:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Simple language detection
+   */
+  detectLanguage(text) {
+    const englishWords = ['the', 'and', 'is', 'in', 'to', 'of', 'a', 'for'];
+    const words = text.toLowerCase().split(/\s+/).slice(0, 100);
+    const englishCount = words.filter(w => englishWords.includes(w)).length;
+    return englishCount > 5 ? 'english' : 'unknown';
+  }
+
+  /**
+   * Simple sentiment analysis
+   */
+  analyzeSentiment(text) {
+    try {
+      const Analyzer = natural.SentimentAnalyzer;
+      const analyzer = new Analyzer('English', this.stemmer, 'afinn');
+      const tokens = this.tokenizer.tokenize(text.toLowerCase());
+      const score = analyzer.getSentiment(tokens);
+      
+      if (score > 0.1) return 'positive';
+      if (score < -0.1) return 'negative';
+      return 'neutral';
+    } catch (error) {
+      return 'neutral';
+    }
+  }
+
+  /**
+   * Add document to search index
+   */
+  indexDocument(docId, data) {
+    this.searchIndex.set(docId, {
+      title: data.title,
+      category: data.category,
+      extractedText: data.extractedText || '',
+      keywords: data.nlpMetadata?.keywords?.map(k => k.word) || [],
+      entities: data.nlpMetadata?.entities || { people: [], places: [], organizations: [], dates: [] },
+      issuer: data.issuer,
+      recipient: data.recipient,
+      fileName: data.fileName,
+      uploadedAt: data.uploadedAt
+    });
+    
+    console.log(`📇 Document ${docId} indexed for search`);
+  }
+
+  /**
+   * Advanced search with filters
+   */
+  search(query, filters = {}) {
+    const results = [];
+    const queryTokens = this.tokenizer.tokenize(query.toLowerCase());
+    const stemmedQuery = queryTokens.map(t => this.stemmer.stem(t));
+    
+    for (const [docId, doc] of this.searchIndex) {
+      let score = 0;
+      
+      if (!this.matchesFilters(doc, filters)) continue;
+      
+      if (doc.title.toLowerCase().includes(query.toLowerCase())) score += 10;
+      
+      const matchedKeywords = doc.keywords.filter(k => 
+        stemmedQuery.some(sq => this.stemmer.stem(k).includes(sq))
+      );
+      score += matchedKeywords.length * 3;
+      
+      const allEntities = [
+        ...doc.entities.people,
+        ...doc.entities.places,
+        ...doc.entities.organizations
+      ];
+      const matchedEntities = allEntities.filter(e =>
+        e.toLowerCase().includes(query.toLowerCase())
+      );
+      score += matchedEntities.length * 5;
+      
+      if (doc.extractedText && doc.extractedText.toLowerCase().includes(query.toLowerCase())) {
+        score += 2;
+      }
+      
+      if (doc.category.toLowerCase().includes(query.toLowerCase())) score += 4;
+      if (doc.issuer.toLowerCase().includes(query.toLowerCase())) score += 3;
+      if (doc.recipient.toLowerCase().includes(query.toLowerCase())) score += 3;
+      if (doc.fileName.toLowerCase().includes(query.toLowerCase())) score += 2;
+      
+      if (score > 0) {
+        results.push({ docId, score, doc });
+      }
+    }
+    
+    results.sort((a, b) => b.score - a.score);
+    return results;
+  }
+
+  /**
+   * Check if document matches filters
+   */
+  matchesFilters(doc, filters) {
+    if (filters.category && filters.category !== 'all') {
+      if (doc.category !== filters.category) return false;
+    }
+    
+    if (filters.dateFrom) {
+      const docDate = new Date(doc.uploadedAt);
+      const fromDate = new Date(filters.dateFrom);
+      if (docDate < fromDate) return false;
+    }
+    
+    if (filters.dateTo) {
+      const docDate = new Date(doc.uploadedAt);
+      const toDate = new Date(filters.dateTo);
+      if (docDate > toDate) return false;
+    }
+    
+    if (filters.issuer && filters.issuer.trim() !== '') {
+      if (!doc.issuer.toLowerCase().includes(filters.issuer.toLowerCase())) {
+        return false;
+      }
+    }
+    
+    if (filters.entity && filters.entity.trim() !== '') {
+      const allEntities = [
+        ...doc.entities.people,
+        ...doc.entities.places,
+        ...doc.entities.organizations
+      ];
+      const hasEntity = allEntities.some(e => 
+        e.toLowerCase().includes(filters.entity.toLowerCase())
+      );
+      if (!hasEntity) return false;
+    }
+    
+    return true;
+  }
+}
+
+// Initialize NLP Processor
+const nlpProcessor = new DocumentNLPProcessor();
+
 // MongoDB Connection
 mongoose.connect(MONGODB_URI, {
   useNewUrlParser: true,
@@ -52,6 +514,8 @@ mongoose.connect(MONGODB_URI, {
   blockchain = new Blockchain(NODE_ID, IS_AUTHORITY);
   await blockchain.initialize();
   
+  await rebuildSearchIndex();
+
   // Add this node as authority if it's an authority node
   if (IS_AUTHORITY) {
     blockchain.addAuthority(NODE_ID);
@@ -75,7 +539,7 @@ mongoose.connect(MONGODB_URI, {
       p2pServer.requestSync();
     }
   }, 15000); // 15 seconds
-  
+
   // Start HTTP server AFTER blockchain is initialized
   startHTTPServer();
 })
@@ -282,9 +746,17 @@ app.post('/api/documents/upload', authenticate, isAdmin, upload.single('file'), 
     }
 
     const crypto = require('crypto');
-    const fs = require('fs');
-    const fileBuffer = fs.readFileSync(req.file.path);
+    const fileBuffer = fsSync.readFileSync(req.file.path);
     const fileHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+
+    // ===== NEW: PROCESS WITH OCR & NLP =====
+    console.log('🤖 Processing document with OCR & NLP...');
+    const nlpData = await nlpProcessor.processDocument(
+      req.file.path,
+      req.file.mimetype,
+      req.file.originalname
+    );
+    console.log('✅ NLP processing complete');
 
     const transaction = {
       type: 'document',
@@ -303,25 +775,44 @@ app.post('/api/documents/upload', authenticate, isAdmin, upload.single('file'), 
         fileType: req.file.mimetype,
         fileHash,
         filePath: req.file.path,
-        uploadedBy: req.user.username, // Changed from NODE_ID
-        uploadedByRole: req.user.role,  // New field
-        uploadedByEmail: req.user.email, // New field
-        uploadedAt: new Date().toISOString()
+        uploadedBy: req.user.username,
+        uploadedByRole: req.user.role,
+        uploadedByEmail: req.user.email,
+        uploadedAt: new Date().toISOString(),
+        
+        // ===== NEW: NLP & OCR METADATA =====
+        nlpMetadata: {
+          extractedText: nlpData.extractedText,
+          fullTextLength: nlpData.fullTextLength,
+          extractionMethod: nlpData.extractionMethod,
+          pageCount: nlpData.pageCount,
+          keywords: nlpData.keywords,
+          entities: nlpData.entities,
+          summary: nlpData.summary,
+          language: nlpData.language,
+          sentiment: nlpData.sentiment,
+          wordCount: nlpData.wordCount,
+          characterCount: nlpData.characterCount
+        }
       }
     };
 
     blockchain.addTransaction(transaction);
     console.log(`📄 Transaction added by ${req.user.username} (${req.user.role})`);
 
+    // ===== NEW: INDEX FOR SEARCH =====
+    nlpProcessor.indexDocument(fileHash, transaction.data);
+
     p2pServer.broadcastTransaction(transaction);
     console.log('📢 Transaction broadcasted to network');
 
     res.status(201).json({
       success: true,
-      message: 'Document uploaded and transaction broadcasted',
+      message: 'Document uploaded and processed with OCR/NLP',
       transaction,
       fileHash,
       uploadedBy: req.user.username,
+      nlpMetadata: transaction.data.nlpMetadata,
       pendingTransactions: blockchain.pendingTransactions.length,
       miningLeader: blockchain.getMiningLeader(),
       isMyTurn: blockchain.isMyTurnToMine()
@@ -338,7 +829,7 @@ app.post('/api/documents/upload', authenticate, isAdmin, upload.single('file'), 
         await performAutoMining();
       }, 2000);
     } else if (!blockchain.isMyTurnToMine()) {
-      console.log(`⭐️ Not my turn - ${blockchain.getMiningLeader()} will mine`);
+      console.log(`⭐ Not my turn - ${blockchain.getMiningLeader()} will mine`);
     }
 
   } catch (error) {
@@ -484,6 +975,152 @@ app.get('/api/network/status', (req, res) => {
     }
   });
 });
+
+// ============================================
+// ADVANCED SEARCH API ROUTE
+// ============================================
+
+app.post('/api/documents/search/advanced', async (req, res) => {
+  if (!blockchain) {
+    return res.status(503).json({ success: false, error: 'Blockchain not initialized yet' });
+  }
+
+  try {
+    const { query, filters } = req.body;
+
+    if (!query || query.trim() === '') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Search query is required' 
+      });
+    }
+
+    console.log(`🔍 Advanced search: "${query}" with filters:`, filters);
+
+    // Perform search using NLP processor
+    const searchResults = nlpProcessor.search(query, filters || {});
+
+    // Get full document details for each result
+    const detailedResults = searchResults.map(result => {
+      // Find the document in blockchain
+      for (const block of blockchain.chain) {
+        for (const tx of block.transactions) {
+          if (tx.type === 'document' && tx.data && tx.data.fileHash === result.docId) {
+            return {
+              ...tx.data,
+              blockIndex: block.index,
+              blockHash: block.hash,
+              timestamp: tx.timestamp,
+              status: 'confirmed',
+              searchScore: result.score
+            };
+          }
+        }
+      }
+      return null;
+    }).filter(doc => doc !== null);
+
+    console.log(`✅ Found ${detailedResults.length} matching documents`);
+
+    res.json({
+      success: true,
+      results: detailedResults,
+      count: detailedResults.length,
+      query: query,
+      filters: filters
+    });
+
+  } catch (error) {
+    console.error('Search error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+// Simple search endpoint (for quick searches without filters)
+app.get('/api/documents/search', async (req, res) => {
+  if (!blockchain) {
+    return res.status(503).json({ success: false, error: 'Blockchain not initialized yet' });
+  }
+
+  try {
+    const query = req.query.q || req.query.query;
+
+    if (!query || query.trim() === '') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Search query parameter "q" is required' 
+      });
+    }
+
+    console.log(`🔍 Simple search: "${query}"`);
+
+    // Perform search without filters
+    const searchResults = nlpProcessor.search(query, {});
+
+    // Get full document details
+    const detailedResults = searchResults.map(result => {
+      for (const block of blockchain.chain) {
+        for (const tx of block.transactions) {
+          if (tx.type === 'document' && tx.data && tx.data.fileHash === result.docId) {
+            return {
+              ...tx.data,
+              blockIndex: block.index,
+              blockHash: block.hash,
+              timestamp: tx.timestamp,
+              status: 'confirmed',
+              searchScore: result.score
+            };
+          }
+        }
+      }
+      return null;
+    }).filter(doc => doc !== null);
+
+    res.json({
+      success: true,
+      results: detailedResults,
+      count: detailedResults.length,
+      query: query
+    });
+
+  } catch (error) {
+    console.error('Search error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+// ============================================
+// REBUILD SEARCH INDEX FROM BLOCKCHAIN
+// ============================================
+
+async function rebuildSearchIndex() {
+  if (!blockchain) {
+    console.log('⚠️  Cannot rebuild search index - blockchain not ready');
+    return;
+  }
+
+  console.log('🔨 Rebuilding search index from blockchain...');
+  
+  let indexedCount = 0;
+  
+  // Index all documents from the blockchain
+  for (const block of blockchain.chain) {
+    for (const tx of block.transactions) {
+      if (tx.type === 'document' && tx.data) {
+        nlpProcessor.indexDocument(tx.data.fileHash, tx.data);
+        indexedCount++;
+      }
+    }
+  }
+  
+  console.log(`✅ Search index rebuilt: ${indexedCount} documents indexed`);
+}
 
 app.get('/api/mining/leader', (req, res) => {
   if (!blockchain) {

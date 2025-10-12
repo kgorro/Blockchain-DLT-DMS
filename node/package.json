@@ -1,18 +1,22 @@
 {
-  "name": "blockchain-dlt-node",
+  "name": "blockchain-node",
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "mongoose": "^7.0.0",
-    "ws": "^8.13.0",
-    "multer": "^1.4.5-lts.1",
+    "express": "^4.19.0",
+    "mongoose": "^8.0.0",
     "cors": "^2.8.5",
-    "dotenv": "^16.0.3",
+    "multer": "^1.4.5-lts.1",
+    "ws": "^8.16.0",
+    "dotenv": "^16.4.0",
     "bcryptjs": "^2.4.3",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "tesseract.js": "^5.0.5",
+    "pdf-parse": "^1.1.1",
+    "natural": "^6.10.0",
+    "stopword": "^2.0.8"
   }
 }
