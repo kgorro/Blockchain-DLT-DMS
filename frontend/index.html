@@ -510,8 +510,27 @@
                     <!-- Tab Content -->
                     <div class="tab-content">
                         <!-- Upload Tab - Admin Only -->
+                        <!-- Upload Tab - Admin Only -->
                         <div class="tab-pane fade show active admin-only" id="upload">
                             <h4 class="mb-4"><i class="bi bi-cloud-upload text-primary"></i> Upload Document</h4>
+                            
+                            <!-- Upload Progress Indicator -->
+                            <div id="uploadProgress" class="alert alert-info hidden">
+                                <div class="d-flex align-items-center">
+                                    <div class="spinner-border spinner-border-sm me-3" role="status">
+                                        <span class="visually-hidden">Processing...</span>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <strong id="uploadProgressText">Uploading document...</strong>
+                                        <div class="progress mt-2" style="height: 20px;">
+                                            <div id="uploadProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                                role="progressbar" style="width: 0%">0%</div>
+                                        </div>
+                                        <small id="uploadProgressDetails" class="text-muted"></small>
+                                    </div>
+                                </div>
+                            </div>
+                            
                             <form id="uploadForm">
                                 <div class="row g-3">
                                     <div class="col-md-12">
@@ -522,10 +541,12 @@
                                             <option value="5003">Node 3 (Port 5003)</option>
                                         </select>
                                     </div>
+                                    
                                     <div class="col-md-12">
                                         <label class="form-label fw-semibold">Document Title <span class="text-danger">*</span></label>
                                         <input type="text" id="title" required class="form-control" placeholder="e.g., Annual Report 2025">
                                     </div>
+                                    
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Category</label>
                                         <select id="category" class="form-select">
@@ -539,27 +560,82 @@
                                             <option value="others">Others</option>
                                         </select>
                                     </div>
+                                    
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Document Type</label>
-                                        <input type="text" id="documentType" class="form-control" placeholder="Memo">
+                                        <input type="text" id="documentType" class="form-control" placeholder="Memo, Report, etc.">
                                     </div>
+                                    
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Issuer</label>
                                         <input type="text" id="issuer" class="form-control" placeholder="John Doe">
                                     </div>
+                                    
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Recipient</label>
                                         <input type="text" id="recipient" class="form-control" placeholder="All Staff">
                                     </div>
+                                    
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Department</label>
+                                        <input type="text" id="department" class="form-control" placeholder="Finance, HR, etc.">
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Reference Number</label>
+                                        <input type="text" id="referenceNumber" class="form-control" placeholder="REF-2025-001">
+                                    </div>
+                                    
+                                    <!-- NEW: Keywords Field -->
+                                    <div class="col-md-12">
+                                        <label class="form-label fw-semibold">Keywords</label>
+                                        <input type="text" id="keywords" class="form-control" 
+                                            placeholder="budget, financial, quarterly (comma-separated)">
+                                        <small class="text-muted">Enter keywords separated by commas. These will be used for searching.</small>
+                                    </div>
+                                    
+                                    <!-- NEW: Description Field -->
+                                    <div class="col-md-12">
+                                        <label class="form-label fw-semibold">Description</label>
+                                        <textarea id="description" class="form-control" rows="3" 
+                                                placeholder="Brief description of the document..."></textarea>
+                                    </div>
+                                    
                                     <div class="col-md-12">
                                         <label class="form-label fw-semibold">File <span class="text-danger">*</span></label>
                                         <input type="file" id="file" required class="form-control">
                                     </div>
+                                    
+                                    <!-- NEW: Disable NLP/OCR Option -->
+                                    <div class="col-md-12">
+                                        <div class="card bg-light">
+                                            <div class="card-body">
+                                                <h6 class="fw-bold mb-3">
+                                                    <i class="bi bi-robot text-primary"></i> AI Processing Options
+                                                </h6>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="enableNLP" checked>
+                                                    <label class="form-check-label" for="enableNLP">
+                                                        <strong>Enable AI Text Extraction & Analysis (NLP/OCR)</strong>
+                                                    </label>
+                                                </div>
+                                                <small class="text-muted d-block mt-2">
+                                                    <i class="bi bi-info-circle"></i> 
+                                                    When enabled, the system will extract text from PDFs and images, 
+                                                    identify keywords, detect entities (people, places, organizations), 
+                                                    and create a searchable summary. This may take 10-30 seconds for large files.
+                                                    <br><strong>Tip:</strong> Disable this for faster uploads if you don't need text analysis.
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <button type="submit" class="btn btn-primary btn-lg w-100 mt-4">
+                                
+                                <button type="submit" class="btn btn-primary btn-lg w-100 mt-4" id="uploadBtn">
                                     <i class="bi bi-cloud-upload"></i> Upload to Blockchain
                                 </button>
                             </form>
+                            
                             <div id="uploadResult" class="mt-4"></div>
                         </div>
 
@@ -1025,21 +1101,59 @@
             const port = document.getElementById('uploadNode').value;
             const formData = new FormData();
             
+            // Basic fields
             formData.append('file', document.getElementById('file').files[0]);
             formData.append('title', document.getElementById('title').value);
             formData.append('category', document.getElementById('category').value);
-            formData.append('documentType', document.getElementById('documentType').value);
-            formData.append('issuer', document.getElementById('issuer').value);
-            formData.append('recipient', document.getElementById('recipient').value);
+            formData.append('documentType', document.getElementById('documentType').value || 'Document');
+            formData.append('issuer', document.getElementById('issuer').value || 'N/A');
+            formData.append('recipient', document.getElementById('recipient').value || 'N/A');
+            formData.append('department', document.getElementById('department').value || 'N/A');
+            formData.append('referenceNumber', document.getElementById('referenceNumber').value || 'N/A');
+            
+            // NEW: Keywords and Description
+            formData.append('keywords', document.getElementById('keywords').value || '');
+            formData.append('description', document.getElementById('description').value || 'N/A');
+            
+            // NEW: NLP/OCR enable/disable
+            const enableNLP = document.getElementById('enableNLP').checked;
+            formData.append('enableNLP', enableNLP);
+
+            // Show progress indicator
+            const progressDiv = document.getElementById('uploadProgress');
+            const progressBar = document.getElementById('uploadProgressBar');
+            const progressText = document.getElementById('uploadProgressText');
+            const progressDetails = document.getElementById('uploadProgressDetails');
+            const uploadBtn = document.getElementById('uploadBtn');
+            const uploadResult = document.getElementById('uploadResult');
+            
+            progressDiv.classList.remove('hidden');
+            uploadResult.innerHTML = '';
+            uploadBtn.disabled = true;
+            
+            // Simulate progress
+            let progress = 0;
+            
+            const updateProgress = (percent, text, details = '') => {
+                progress = percent;
+                progressBar.style.width = `${percent}%`;
+                progressBar.textContent = `${percent}%`;
+                progressText.textContent = text;
+                progressDetails.textContent = details;
+            };
+            
+            updateProgress(10, 'Uploading file...', 'Sending to blockchain node...');
 
             try {
+                const startTime = Date.now();
+                
                 const response = await fetch(`${API_BASE}:${port}/api/documents/upload`, {
                     method: 'POST',
                     headers: getAuthHeaders(),
                     body: formData
                 });
                 
-                const data = await response.json();
+                updateProgress(30, 'File uploaded', 'Processing document...');
                 
                 if (response.status === 401) {
                     alert('Session expired. Please login again.');
@@ -1047,29 +1161,93 @@
                     return;
                 }
                 
+                // Simulate NLP processing time
+                if (enableNLP) {
+                    updateProgress(40, 'Extracting text...', 'Running OCR and text extraction...');
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    updateProgress(60, 'Analyzing content...', 'Identifying keywords and entities...');
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    updateProgress(80, 'Indexing for search...', 'Building search index...');
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                } else {
+                    updateProgress(70, 'Skipping AI analysis...', 'Processing without NLP/OCR');
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+                
+                updateProgress(90, 'Adding to blockchain...', 'Broadcasting to network...');
+                
+                const data = await response.json();
+                
+                updateProgress(100, 'Complete!', '');
+                
+                const processingTime = ((Date.now() - startTime) / 1000).toFixed(1);
+                
                 if (data.success) {
-                    document.getElementById('uploadResult').innerHTML = `
+                    uploadResult.innerHTML = `
                         <div class="alert alert-success">
-                            <h5 class="alert-heading"><i class="bi bi-check-circle-fill"></i> Success!</h5>
-                            <p>Document uploaded and transaction broadcasted to the network</p>
+                            <h5 class="alert-heading">
+                                <i class="bi bi-check-circle-fill"></i> Document Uploaded Successfully!
+                            </h5>
+                            <p>Document has been uploaded and added to the blockchain</p>
                             <hr>
-                            <p class="mb-0"><strong>Hash:</strong> <code>${data.fileHash.substring(0, 40)}...</code></p>
-                            <p class="mb-0"><strong>Pending:</strong> ${data.pendingTransactions} transaction(s)</p>
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <strong>File Hash:</strong><br>
+                                    <code>${data.fileHash.substring(0, 40)}...</code>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Processing Time:</strong><br>
+                                    ${processingTime} seconds
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Status:</strong><br>
+                                    <span class="badge bg-warning text-dark">Pending Mining</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Pending Transactions:</strong><br>
+                                    ${data.pendingTransactions} transaction(s)
+                                </div>
+                                ${enableNLP && data.nlpMetadata ? `
+                                <div class="col-12 mt-3">
+                                    <strong><i class="bi bi-robot"></i> AI Analysis Results:</strong>
+                                    <ul class="mb-0 mt-2">
+                                        <li>Extracted ${data.nlpMetadata.wordCount || 0} words from ${data.nlpMetadata.pageCount || 1} page(s)</li>
+                                        <li>Identified ${data.nlpMetadata.keywords?.length || 0} keywords</li>
+                                        <li>Found ${(data.nlpMetadata.entities?.people?.length || 0) + 
+                                                (data.nlpMetadata.entities?.organizations?.length || 0) + 
+                                                (data.nlpMetadata.entities?.places?.length || 0)} entities</li>
+                                        <li>Extraction method: ${data.nlpMetadata.extractionMethod === 'ocr' ? 'OCR (Scanned)' : 
+                                                                data.nlpMetadata.extractionMethod === 'direct' ? 'Direct Text' : 
+                                                                data.nlpMetadata.extractionMethod}</li>
+                                    </ul>
+                                </div>
+                                ` : ''}
+                            </div>
                         </div>
                     `;
                     
                     document.getElementById('uploadForm').reset();
-                    setTimeout(checkNodeStatus, 2000);
+                    document.getElementById('enableNLP').checked = true; // Reset to checked
+                    
+                    setTimeout(() => {
+                        progressDiv.classList.add('hidden');
+                        checkNodeStatus();
+                    }, 3000);
                 } else {
                     throw new Error(data.error);
                 }
             } catch (error) {
-                document.getElementById('uploadResult').innerHTML = `
+                progressDiv.classList.add('hidden');
+                uploadResult.innerHTML = `
                     <div class="alert alert-danger">
-                        <h5 class="alert-heading"><i class="bi bi-x-circle-fill"></i> Error</h5>
+                        <h5 class="alert-heading"><i class="bi bi-x-circle-fill"></i> Upload Failed</h5>
                         <p class="mb-0">${error.message}</p>
                     </div>
                 `;
+            } finally {
+                uploadBtn.disabled = false;
             }
         });
 
@@ -1202,16 +1380,22 @@
                             </div>
                             
                             <!-- ADD KEYWORDS PREVIEW HERE -->
-                            ${doc.nlpMetadata?.keywords && doc.nlpMetadata.keywords.length > 0 ? `
+                            ${(doc.manualKeywords && doc.manualKeywords.length > 0) || (doc.nlpMetadata?.keywords && doc.nlpMetadata.keywords.length > 0) ? `
                             <div class="col-12 mt-2">
                                 <div class="info-row">
                                     <i class="bi bi-tags"></i>
                                     <small>
                                         <strong>Keywords:</strong> 
-                                        ${doc.nlpMetadata.keywords.slice(0, 5).map(k => 
-                                            `<span class="badge bg-secondary" style="font-size: 0.7rem;">${k.word}</span>`
-                                        ).join(' ')}
-                                        ${doc.nlpMetadata.keywords.length > 5 ? `<span class="text-muted">+${doc.nlpMetadata.keywords.length - 5} more</span>` : ''}
+                                        ${doc.manualKeywords && doc.manualKeywords.length > 0 ? 
+                                            doc.manualKeywords.map(k => 
+                                                `<span class="badge bg-info" style="font-size: 0.7rem;">${k}</span>`
+                                            ).join(' ') : ''}
+                                        ${doc.nlpMetadata?.keywords && doc.nlpMetadata.keywords.length > 0 ? 
+                                            doc.nlpMetadata.keywords.slice(0, 5).map(k => 
+                                                `<span class="badge bg-secondary" style="font-size: 0.7rem;">${k.word}</span>`
+                                            ).join(' ') : ''}
+                                        ${doc.nlpMetadata?.keywords && doc.nlpMetadata.keywords.length > 5 ? 
+                                            `<span class="text-muted">+${doc.nlpMetadata.keywords.length - 5} more</span>` : ''}
                                     </small>
                                 </div>
                             </div>
@@ -1220,6 +1404,7 @@
                     </div>
                 </div>
             `;}).join('');
+            
             
             document.getElementById('documentsList').innerHTML = html;
             
