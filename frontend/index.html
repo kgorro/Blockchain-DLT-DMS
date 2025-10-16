@@ -198,7 +198,7 @@
             margin-right: 0.5rem;
         }
 
-                .blockchain-block {
+        .blockchain-block {
             background: #f9fafb;
             border: 2px solid #e5e7eb;
             border-radius: 12px;
@@ -360,9 +360,267 @@
             right: 0;
         }
 
+        /* Full-Page Upload Loading Overlay */
+        .upload-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .upload-overlay.hidden {
+            display: none;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .upload-overlay-content {
+            text-align: center;
+            max-width: 600px;
+            padding: 3rem;
+            animation: slideUp 0.5s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(30px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .upload-icon-container {
+            position: relative;
+            display: inline-block;
+            margin-bottom: 2rem;
+        }
+
+        .upload-icon {
+            font-size: 6rem;
+            color: #6366f1;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.1);
+                opacity: 0.8;
+            }
+        }
+
+        .upload-icon-spinner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 120px;
+            height: 120px;
+            border: 4px solid rgba(99, 102, 241, 0.1);
+            border-top-color: #6366f1;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: translate(-50%, -50%) rotate(360deg);
+            }
+        }
+
+        .upload-title {
+            color: white;
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .upload-subtitle {
+            color: #9ca3af;
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+        }
+
+        .upload-progress-container {
+            position: relative;
+            margin-bottom: 2rem;
+        }
+
+        .upload-progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .upload-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #6366f1, #8b5cf6);
+            border-radius: 10px;
+            width: 0%;
+            transition: width 0.5s ease;
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.5);
+        }
+
+        .upload-progress-text {
+            color: white;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-top: 1rem;
+        }
+
+        .upload-details {
+            display: flex;
+            justify-content: center;
+            gap: 3rem;
+            margin-bottom: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .upload-detail-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .upload-detail-item i {
+            font-size: 1.5rem;
+            color: #6366f1;
+        }
+
+        .upload-detail-item span {
+            color: #d1d5db;
+            font-size: 0.9rem;
+        }
+
+        .upload-steps {
+            text-align: left;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .upload-step {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            color: #6b7280;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+        }
+
+        .upload-step.active {
+            color: #6366f1;
+            background: rgba(99, 102, 241, 0.1);
+            border-radius: 8px;
+            transform: translateX(10px);
+        }
+
+        .upload-step.completed {
+            color: #10b981;
+        }
+
+        .upload-step .step-icon {
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .upload-step.active .step-icon {
+            animation: pulse 1s ease-in-out infinite;
+        }
+
+        .upload-step.completed .step-icon {
+            color: #10b981;
+        }
+
+        .upload-step.completed .step-icon::before {
+            content: "\f26b"; /* bi-check-circle-fill */
+        }
+
     </style>
 </head>
 <body>
+    <div id="uploadLoadingOverlay" class="upload-overlay hidden">
+        <div class="upload-overlay-content">
+            <div class="upload-icon-container">
+                <i class="bi bi-file-earmark-arrow-up upload-icon"></i>
+                <div class="upload-icon-spinner"></div>
+            </div>
+            
+            <h3 class="upload-title mt-4" id="uploadOverlayTitle">Uploading Document...</h3>
+            <p class="upload-subtitle" id="uploadOverlaySubtitle">Please wait while we process your file</p>
+            
+            <div class="upload-progress-container">
+                <div class="upload-progress-bar">
+                    <div class="upload-progress-fill" id="uploadOverlayProgressBar"></div>
+                </div>
+                <div class="upload-progress-text" id="uploadOverlayProgressText">0%</div>
+            </div>
+            
+            <div class="upload-details" id="uploadOverlayDetails">
+                <div class="upload-detail-item">
+                    <i class="bi bi-file-earmark-text"></i>
+                    <span id="detailFileName">-</span>
+                </div>
+                <div class="upload-detail-item">
+                    <i class="bi bi-hdd"></i>
+                    <span id="detailFileSize">-</span>
+                </div>
+                <div class="upload-detail-item">
+                    <i class="bi bi-clock"></i>
+                    <span id="detailElapsedTime">0s</span>
+                </div>
+            </div>
+            
+            <div class="upload-steps" id="uploadOverlaySteps">
+                <div class="upload-step" id="step1">
+                    <i class="bi bi-circle-fill step-icon"></i>
+                    <span>Uploading file to blockchain</span>
+                </div>
+                <div class="upload-step" id="step2">
+                    <i class="bi bi-circle step-icon"></i>
+                    <span>Extracting text with OCR</span>
+                </div>
+                <div class="upload-step" id="step3">
+                    <i class="bi bi-circle step-icon"></i>
+                    <span>Analyzing content with AI</span>
+                </div>
+                <div class="upload-step" id="step4">
+                    <i class="bi bi-circle step-icon"></i>
+                    <span>Indexing for search</span>
+                </div>
+                <div class="upload-step" id="step5">
+                    <i class="bi bi-circle step-icon"></i>
+                    <span>Broadcasting to network</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Welcome Screen -->
     <div id="welcomeScreen" class="welcome-container">
         <div class="welcome-card">
@@ -1100,9 +1358,10 @@
 
             const port = document.getElementById('uploadNode').value;
             const formData = new FormData();
+            const file = document.getElementById('file').files[0];
             
             // Basic fields
-            formData.append('file', document.getElementById('file').files[0]);
+            formData.append('file', file);
             formData.append('title', document.getElementById('title').value);
             formData.append('category', document.getElementById('category').value);
             formData.append('documentType', document.getElementById('documentType').value || 'Document');
@@ -1110,42 +1369,54 @@
             formData.append('recipient', document.getElementById('recipient').value || 'N/A');
             formData.append('department', document.getElementById('department').value || 'N/A');
             formData.append('referenceNumber', document.getElementById('referenceNumber').value || 'N/A');
-            
-            // NEW: Keywords and Description
             formData.append('keywords', document.getElementById('keywords').value || '');
             formData.append('description', document.getElementById('description').value || 'N/A');
             
-            // NEW: NLP/OCR enable/disable
             const enableNLP = document.getElementById('enableNLP').checked;
             formData.append('enableNLP', enableNLP);
 
-            // Show progress indicator
-            const progressDiv = document.getElementById('uploadProgress');
-            const progressBar = document.getElementById('uploadProgressBar');
-            const progressText = document.getElementById('uploadProgressText');
-            const progressDetails = document.getElementById('uploadProgressDetails');
-            const uploadBtn = document.getElementById('uploadBtn');
-            const uploadResult = document.getElementById('uploadResult');
+            // Show full-page overlay
+            const overlay = document.getElementById('uploadLoadingOverlay');
+            overlay.classList.remove('hidden');
             
-            progressDiv.classList.remove('hidden');
-            uploadResult.innerHTML = '';
-            uploadBtn.disabled = true;
+            const startTime = Date.now();
+            let timerInterval;
             
-            // Simulate progress
-            let progress = 0;
+            // Update elapsed time
+            timerInterval = setInterval(() => {
+                const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                document.getElementById('detailElapsedTime').textContent = `${elapsed}s`;
+            }, 100);
             
-            const updateProgress = (percent, text, details = '') => {
-                progress = percent;
-                progressBar.style.width = `${percent}%`;
-                progressBar.textContent = `${percent}%`;
-                progressText.textContent = text;
-                progressDetails.textContent = details;
+            // Set file details
+            document.getElementById('detailFileName').textContent = file.name;
+            document.getElementById('detailFileSize').textContent = `${(file.size / 1024).toFixed(2)} KB`;
+            
+            const updateProgress = (percent, title, subtitle, activeStep) => {
+                document.getElementById('uploadOverlayProgressBar').style.width = `${percent}%`;
+                document.getElementById('uploadOverlayProgressText').textContent = `${percent}%`;
+                document.getElementById('uploadOverlayTitle').textContent = title;
+                document.getElementById('uploadOverlaySubtitle').textContent = subtitle;
+                
+                // Update steps
+                for (let i = 1; i <= 5; i++) {
+                    const stepEl = document.getElementById(`step${i}`);
+                    stepEl.classList.remove('active', 'completed');
+                    
+                    if (i < activeStep) {
+                        stepEl.classList.add('completed');
+                    } else if (i === activeStep) {
+                        stepEl.classList.add('active');
+                    }
+                }
             };
-            
-            updateProgress(10, 'Uploading file...', 'Sending to blockchain node...');
 
             try {
-                const startTime = Date.now();
+                // Step 1: Uploading
+                updateProgress(10, 'Uploading Document...', 'Sending file to blockchain node', 1);
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                updateProgress(20, 'Uploading Document...', 'File transfer in progress', 1);
                 
                 const response = await fetch(`${API_BASE}:${port}/api/documents/upload`, {
                     method: 'POST',
@@ -1153,101 +1424,117 @@
                     body: formData
                 });
                 
-                updateProgress(30, 'File uploaded', 'Processing document...');
-                
                 if (response.status === 401) {
+                    clearInterval(timerInterval);
+                    overlay.classList.add('hidden');
                     alert('Session expired. Please login again.');
                     logout();
                     return;
                 }
                 
-                // Simulate NLP processing time
+                updateProgress(30, 'File Uploaded!', 'Processing document...', 1);
+                await new Promise(resolve => setTimeout(resolve, 800));
+                
                 if (enableNLP) {
-                    updateProgress(40, 'Extracting text...', 'Running OCR and text extraction...');
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    // Step 2: OCR
+                    updateProgress(40, 'Extracting Text...', 'Running OCR on document pages', 2);
+                    await new Promise(resolve => setTimeout(resolve, 1500));
                     
-                    updateProgress(60, 'Analyzing content...', 'Identifying keywords and entities...');
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    updateProgress(50, 'Text Extracted!', `Processing ${file.type === 'application/pdf' ? 'PDF' : 'image'} content`, 2);
+                    await new Promise(resolve => setTimeout(resolve, 800));
                     
-                    updateProgress(80, 'Indexing for search...', 'Building search index...');
-                    await new Promise(resolve => setTimeout(resolve, 500));
+                    // Step 3: AI Analysis
+                    updateProgress(60, 'Analyzing Content...', 'Identifying keywords and entities with AI', 3);
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    
+                    updateProgress(70, 'AI Analysis Complete!', 'Content successfully analyzed', 3);
+                    await new Promise(resolve => setTimeout(resolve, 800));
+                    
+                    // Step 4: Indexing
+                    updateProgress(80, 'Indexing Document...', 'Building search index', 4);
+                    await new Promise(resolve => setTimeout(resolve, 1000));
                 } else {
-                    updateProgress(70, 'Skipping AI analysis...', 'Processing without NLP/OCR');
+                    updateProgress(60, 'Skipping AI Analysis...', 'Processing without NLP/OCR', 2);
                     await new Promise(resolve => setTimeout(resolve, 500));
                 }
                 
-                updateProgress(90, 'Adding to blockchain...', 'Broadcasting to network...');
+                // Step 5: Broadcasting
+                updateProgress(90, 'Broadcasting to Network...', 'Adding transaction to blockchain', 5);
+                await new Promise(resolve => setTimeout(resolve, 800));
                 
                 const data = await response.json();
                 
-                updateProgress(100, 'Complete!', '');
+                updateProgress(100, 'Upload Complete!', '✓ Document successfully added to blockchain', 5);
+                await new Promise(resolve => setTimeout(resolve, 1000));
                 
-                const processingTime = ((Date.now() - startTime) / 1000).toFixed(1);
+                clearInterval(timerInterval);
                 
                 if (data.success) {
-                    uploadResult.innerHTML = `
-                        <div class="alert alert-success">
-                            <h5 class="alert-heading">
-                                <i class="bi bi-check-circle-fill"></i> Document Uploaded Successfully!
-                            </h5>
-                            <p>Document has been uploaded and added to the blockchain</p>
-                            <hr>
-                            <div class="row g-2">
-                                <div class="col-md-6">
-                                    <strong>File Hash:</strong><br>
-                                    <code>${data.fileHash.substring(0, 40)}...</code>
-                                </div>
-                                <div class="col-md-6">
-                                    <strong>Processing Time:</strong><br>
-                                    ${processingTime} seconds
-                                </div>
-                                <div class="col-md-6">
-                                    <strong>Status:</strong><br>
-                                    <span class="badge bg-warning text-dark">Pending Mining</span>
-                                </div>
-                                <div class="col-md-6">
-                                    <strong>Pending Transactions:</strong><br>
-                                    ${data.pendingTransactions} transaction(s)
-                                </div>
-                                ${enableNLP && data.nlpMetadata ? `
-                                <div class="col-12 mt-3">
-                                    <strong><i class="bi bi-robot"></i> AI Analysis Results:</strong>
-                                    <ul class="mb-0 mt-2">
-                                        <li>Extracted ${data.nlpMetadata.wordCount || 0} words from ${data.nlpMetadata.pageCount || 1} page(s)</li>
-                                        <li>Identified ${data.nlpMetadata.keywords?.length || 0} keywords</li>
-                                        <li>Found ${(data.nlpMetadata.entities?.people?.length || 0) + 
-                                                (data.nlpMetadata.entities?.organizations?.length || 0) + 
-                                                (data.nlpMetadata.entities?.places?.length || 0)} entities</li>
-                                        <li>Extraction method: ${data.nlpMetadata.extractionMethod === 'ocr' ? 'OCR (Scanned)' : 
-                                                                data.nlpMetadata.extractionMethod === 'direct' ? 'Direct Text' : 
-                                                                data.nlpMetadata.extractionMethod}</li>
-                                    </ul>
-                                </div>
-                                ` : ''}
-                            </div>
-                        </div>
+                    // Show success state
+                    document.getElementById('uploadOverlayTitle').textContent = '✓ Success!';
+                    document.getElementById('uploadOverlaySubtitle').innerHTML = `
+                        Document uploaded and ${enableNLP ? 'analyzed with AI' : 'processed'}<br>
+                        <small>Hash: ${data.fileHash.substring(0, 20)}...</small>
                     `;
                     
-                    document.getElementById('uploadForm').reset();
-                    document.getElementById('enableNLP').checked = true; // Reset to checked
+                    // Mark all steps complete
+                    for (let i = 1; i <= 5; i++) {
+                        document.getElementById(`step${i}`).classList.add('completed');
+                        document.getElementById(`step${i}`).classList.remove('active');
+                    }
                     
                     setTimeout(() => {
-                        progressDiv.classList.add('hidden');
+                        overlay.classList.add('hidden');
+                        document.getElementById('uploadForm').reset();
+                        document.getElementById('enableNLP').checked = true;
+                        
+                        // Show success message
+                        document.getElementById('uploadResult').innerHTML = `
+                            <div class="alert alert-success">
+                                <h5 class="alert-heading">
+                                    <i class="bi bi-check-circle-fill"></i> Document Uploaded Successfully!
+                                </h5>
+                                <p>Document has been added to the blockchain and is pending mining.</p>
+                                <hr>
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <strong>File Hash:</strong><br>
+                                        <code>${data.fileHash.substring(0, 40)}...</code>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong>Status:</strong><br>
+                                        <span class="badge bg-warning text-dark">Pending Mining</span>
+                                    </div>
+                                    ${enableNLP && data.nlpMetadata ? `
+                                    <div class="col-12 mt-2">
+                                        <strong><i class="bi bi-robot"></i> AI Analysis:</strong>
+                                        <ul class="mb-0 mt-1">
+                                            <li>${data.nlpMetadata.wordCount || 0} words extracted</li>
+                                            <li>${data.nlpMetadata.keywords?.length || 0} keywords identified</li>
+                                            <li>${(data.nlpMetadata.entities?.people?.length || 0) + 
+                                                (data.nlpMetadata.entities?.organizations?.length || 0)} entities found</li>
+                                        </ul>
+                                    </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        `;
+                        
                         checkNodeStatus();
-                    }, 3000);
+                    }, 2000);
                 } else {
                     throw new Error(data.error);
                 }
             } catch (error) {
-                progressDiv.classList.add('hidden');
-                uploadResult.innerHTML = `
+                clearInterval(timerInterval);
+                overlay.classList.add('hidden');
+                
+                document.getElementById('uploadResult').innerHTML = `
                     <div class="alert alert-danger">
                         <h5 class="alert-heading"><i class="bi bi-x-circle-fill"></i> Upload Failed</h5>
                         <p class="mb-0">${error.message}</p>
                     </div>
                 `;
-            } finally {
-                uploadBtn.disabled = false;
             }
         });
 
@@ -2057,6 +2344,20 @@ document.getElementById('searchInput').addEventListener('keypress', (e) => {
             }
         }
 
+        function resetUploadOverlay() {
+            document.getElementById('uploadOverlayProgressBar').style.width = '0%';
+            document.getElementById('uploadOverlayProgressText').textContent = '0%';
+            document.getElementById('uploadOverlayTitle').textContent = 'Uploading Document...';
+            document.getElementById('uploadOverlaySubtitle').textContent = 'Please wait while we process your file';
+            document.getElementById('detailFileName').textContent = '-';
+            document.getElementById('detailFileSize').textContent = '-';
+            document.getElementById('detailElapsedTime').textContent = '0s';
+            
+            for (let i = 1; i <= 5; i++) {
+                const step = document.getElementById(`step${i}`);
+                step.classList.remove('active', 'completed');
+            }
+        }
         
     </script>
 </body>
