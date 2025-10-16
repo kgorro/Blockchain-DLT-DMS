@@ -739,7 +739,18 @@ app.post('/api/documents/upload', authenticate, isAdmin, upload.single('file'), 
       return res.status(400).json({ success: false, error: 'No file uploaded' });
     }
 
-    const { title, category, documentType, issuer, recipient, department, referenceNumber, description } = req.body;
+    const { 
+      title, 
+      category, 
+      documentType, 
+      issuer, 
+      recipient, 
+      department, 
+      referenceNumber, 
+      description,
+      keywords,  // NEW
+      enableNLP  // NEW
+    } = req.body;
 
     if (!title) {
       return res.status(400).json({ success: false, error: 'Document title is required' });
@@ -749,14 +760,39 @@ app.post('/api/documents/upload', authenticate, isAdmin, upload.single('file'), 
     const fileBuffer = fsSync.readFileSync(req.file.path);
     const fileHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
 
-    // ===== NEW: PROCESS WITH OCR & NLP =====
-    console.log('🤖 Processing document with OCR & NLP...');
-    const nlpData = await nlpProcessor.processDocument(
-      req.file.path,
-      req.file.mimetype,
-      req.file.originalname
-    );
-    console.log('✅ NLP processing complete');
+    let nlpData = null;
+    const shouldProcessNLP = enableNLP === 'true' || enableNLP === true;
+
+    // ===== CONDITIONAL NLP/OCR PROCESSING =====
+    if (shouldProcessNLP) {
+      console.log('🤖 AI Processing enabled - running OCR & NLP...');
+      nlpData = await nlpProcessor.processDocument(
+        req.file.path,
+        req.file.mimetype,
+        req.file.originalname
+      );
+      console.log('✅ AI processing complete');
+    } else {
+      console.log('⏭️  AI Processing disabled - skipping NLP/OCR');
+      nlpData = {
+        extractedText: '',
+        fullTextLength: 0,
+        extractionMethod: 'disabled',
+        pageCount: 0,
+        keywords: [],
+        entities: { people: [], places: [], organizations: [], dates: [] },
+        summary: '',
+        language: 'unknown',
+        sentiment: 'neutral',
+        wordCount: 0,
+        characterCount: 0
+      };
+    }
+
+    // Parse manual keywords if provided
+    const manualKeywords = keywords ? 
+      keywords.split(',').map(k => k.trim()).filter(k => k.length > 0) : 
+      [];
 
     const transaction = {
       type: 'document',
@@ -770,6 +806,7 @@ app.post('/api/documents/upload', authenticate, isAdmin, upload.single('file'), 
         department: department || 'N/A',
         referenceNumber: referenceNumber || 'N/A',
         description: description || 'N/A',
+        manualKeywords: manualKeywords,  // NEW: Store manual keywords separately
         fileName: req.file.originalname,
         fileSize: req.file.size,
         fileType: req.file.mimetype,
@@ -779,8 +816,9 @@ app.post('/api/documents/upload', authenticate, isAdmin, upload.single('file'), 
         uploadedByRole: req.user.role,
         uploadedByEmail: req.user.email,
         uploadedAt: new Date().toISOString(),
+        nlpEnabled: shouldProcessNLP,  // NEW: Track if NLP was enabled
         
-        // ===== NEW: NLP & OCR METADATA =====
+        // NLP metadata (empty if disabled)
         nlpMetadata: {
           extractedText: nlpData.extractedText,
           fullTextLength: nlpData.fullTextLength,
@@ -800,24 +838,45 @@ app.post('/api/documents/upload', authenticate, isAdmin, upload.single('file'), 
     blockchain.addTransaction(transaction);
     console.log(`📄 Transaction added by ${req.user.username} (${req.user.role})`);
 
-    // ===== NEW: INDEX FOR SEARCH =====
-    nlpProcessor.indexDocument(fileHash, transaction.data);
+    // Index for search (use manual keywords if NLP disabled)
+    if (shouldProcessNLP) {
+      nlpProcessor.indexDocument(fileHash, transaction.data);
+    } else {
+      // Index with manual keywords only
+      nlpProcessor.searchIndex.set(fileHash, {
+        title: transaction.data.title,
+        category: transaction.data.category,
+        extractedText: '',
+        keywords: manualKeywords,
+        entities: { people: [], places: [], organizations: [], dates: [] },
+        issuer: transaction.data.issuer,
+        recipient: transaction.data.recipient,
+        fileName: transaction.data.fileName,
+        uploadedAt: transaction.data.uploadedAt
+      });
+      console.log(`🔍 Document ${fileHash} indexed with manual keywords only`);
+    }
 
     p2pServer.broadcastTransaction(transaction);
     console.log('📢 Transaction broadcasted to network');
 
     res.status(201).json({
       success: true,
-      message: 'Document uploaded and processed with OCR/NLP',
+      message: shouldProcessNLP ? 
+        'Document uploaded and processed with AI analysis' : 
+        'Document uploaded (AI analysis skipped)',
       transaction,
       fileHash,
       uploadedBy: req.user.username,
       nlpMetadata: transaction.data.nlpMetadata,
+      nlpEnabled: shouldProcessNLP,
+      manualKeywords: manualKeywords,
       pendingTransactions: blockchain.pendingTransactions.length,
       miningLeader: blockchain.getMiningLeader(),
       isMyTurn: blockchain.isMyTurnToMine()
     });
 
+    // Auto-mining logic (unchanged)
     if (IS_AUTHORITY && blockchain.isMyTurnToMine() && !isMiningInProgress) {
       console.log('✅ My turn to mine - scheduling auto-mine');
       

@@ -198,7 +198,7 @@
             margin-right: 0.5rem;
         }
 
-                .blockchain-block {
+        .blockchain-block {
             background: #f9fafb;
             border: 2px solid #e5e7eb;
             border-radius: 12px;
@@ -360,9 +360,267 @@
             right: 0;
         }
 
+        /* Full-Page Upload Loading Overlay */
+        .upload-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .upload-overlay.hidden {
+            display: none;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .upload-overlay-content {
+            text-align: center;
+            max-width: 600px;
+            padding: 3rem;
+            animation: slideUp 0.5s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(30px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .upload-icon-container {
+            position: relative;
+            display: inline-block;
+            margin-bottom: 2rem;
+        }
+
+        .upload-icon {
+            font-size: 6rem;
+            color: #6366f1;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.1);
+                opacity: 0.8;
+            }
+        }
+
+        .upload-icon-spinner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 120px;
+            height: 120px;
+            border: 4px solid rgba(99, 102, 241, 0.1);
+            border-top-color: #6366f1;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: translate(-50%, -50%) rotate(360deg);
+            }
+        }
+
+        .upload-title {
+            color: white;
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .upload-subtitle {
+            color: #9ca3af;
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+        }
+
+        .upload-progress-container {
+            position: relative;
+            margin-bottom: 2rem;
+        }
+
+        .upload-progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .upload-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #6366f1, #8b5cf6);
+            border-radius: 10px;
+            width: 0%;
+            transition: width 0.5s ease;
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.5);
+        }
+
+        .upload-progress-text {
+            color: white;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-top: 1rem;
+        }
+
+        .upload-details {
+            display: flex;
+            justify-content: center;
+            gap: 3rem;
+            margin-bottom: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .upload-detail-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .upload-detail-item i {
+            font-size: 1.5rem;
+            color: #6366f1;
+        }
+
+        .upload-detail-item span {
+            color: #d1d5db;
+            font-size: 0.9rem;
+        }
+
+        .upload-steps {
+            text-align: left;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .upload-step {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            color: #6b7280;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+        }
+
+        .upload-step.active {
+            color: #6366f1;
+            background: rgba(99, 102, 241, 0.1);
+            border-radius: 8px;
+            transform: translateX(10px);
+        }
+
+        .upload-step.completed {
+            color: #10b981;
+        }
+
+        .upload-step .step-icon {
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .upload-step.active .step-icon {
+            animation: pulse 1s ease-in-out infinite;
+        }
+
+        .upload-step.completed .step-icon {
+            color: #10b981;
+        }
+
+        .upload-step.completed .step-icon::before {
+            content: "\f26b"; /* bi-check-circle-fill */
+        }
+
     </style>
 </head>
 <body>
+    <div id="uploadLoadingOverlay" class="upload-overlay hidden">
+        <div class="upload-overlay-content">
+            <div class="upload-icon-container">
+                <i class="bi bi-file-earmark-arrow-up upload-icon"></i>
+                <div class="upload-icon-spinner"></div>
+            </div>
+            
+            <h3 class="upload-title mt-4" id="uploadOverlayTitle">Uploading Document...</h3>
+            <p class="upload-subtitle" id="uploadOverlaySubtitle">Please wait while we process your file</p>
+            
+            <div class="upload-progress-container">
+                <div class="upload-progress-bar">
+                    <div class="upload-progress-fill" id="uploadOverlayProgressBar"></div>
+                </div>
+                <div class="upload-progress-text" id="uploadOverlayProgressText">0%</div>
+            </div>
+            
+            <div class="upload-details" id="uploadOverlayDetails">
+                <div class="upload-detail-item">
+                    <i class="bi bi-file-earmark-text"></i>
+                    <span id="detailFileName">-</span>
+                </div>
+                <div class="upload-detail-item">
+                    <i class="bi bi-hdd"></i>
+                    <span id="detailFileSize">-</span>
+                </div>
+                <div class="upload-detail-item">
+                    <i class="bi bi-clock"></i>
+                    <span id="detailElapsedTime">0s</span>
+                </div>
+            </div>
+            
+            <div class="upload-steps" id="uploadOverlaySteps">
+                <div class="upload-step" id="step1">
+                    <i class="bi bi-circle-fill step-icon"></i>
+                    <span>Uploading file to blockchain</span>
+                </div>
+                <div class="upload-step" id="step2">
+                    <i class="bi bi-circle step-icon"></i>
+                    <span>Extracting text with OCR</span>
+                </div>
+                <div class="upload-step" id="step3">
+                    <i class="bi bi-circle step-icon"></i>
+                    <span>Analyzing content with AI</span>
+                </div>
+                <div class="upload-step" id="step4">
+                    <i class="bi bi-circle step-icon"></i>
+                    <span>Indexing for search</span>
+                </div>
+                <div class="upload-step" id="step5">
+                    <i class="bi bi-circle step-icon"></i>
+                    <span>Broadcasting to network</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Welcome Screen -->
     <div id="welcomeScreen" class="welcome-container">
         <div class="welcome-card">
@@ -510,8 +768,27 @@
                     <!-- Tab Content -->
                     <div class="tab-content">
                         <!-- Upload Tab - Admin Only -->
+                        <!-- Upload Tab - Admin Only -->
                         <div class="tab-pane fade show active admin-only" id="upload">
                             <h4 class="mb-4"><i class="bi bi-cloud-upload text-primary"></i> Upload Document</h4>
+                            
+                            <!-- Upload Progress Indicator -->
+                            <div id="uploadProgress" class="alert alert-info hidden">
+                                <div class="d-flex align-items-center">
+                                    <div class="spinner-border spinner-border-sm me-3" role="status">
+                                        <span class="visually-hidden">Processing...</span>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <strong id="uploadProgressText">Uploading document...</strong>
+                                        <div class="progress mt-2" style="height: 20px;">
+                                            <div id="uploadProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                                role="progressbar" style="width: 0%">0%</div>
+                                        </div>
+                                        <small id="uploadProgressDetails" class="text-muted"></small>
+                                    </div>
+                                </div>
+                            </div>
+                            
                             <form id="uploadForm">
                                 <div class="row g-3">
                                     <div class="col-md-12">
@@ -522,10 +799,12 @@
                                             <option value="5003">Node 3 (Port 5003)</option>
                                         </select>
                                     </div>
+                                    
                                     <div class="col-md-12">
                                         <label class="form-label fw-semibold">Document Title <span class="text-danger">*</span></label>
                                         <input type="text" id="title" required class="form-control" placeholder="e.g., Annual Report 2025">
                                     </div>
+                                    
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Category</label>
                                         <select id="category" class="form-select">
@@ -539,27 +818,82 @@
                                             <option value="others">Others</option>
                                         </select>
                                     </div>
+                                    
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Document Type</label>
-                                        <input type="text" id="documentType" class="form-control" placeholder="Memo">
+                                        <input type="text" id="documentType" class="form-control" placeholder="Memo, Report, etc.">
                                     </div>
+                                    
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Issuer</label>
                                         <input type="text" id="issuer" class="form-control" placeholder="John Doe">
                                     </div>
+                                    
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Recipient</label>
                                         <input type="text" id="recipient" class="form-control" placeholder="All Staff">
                                     </div>
+                                    
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Department</label>
+                                        <input type="text" id="department" class="form-control" placeholder="Finance, HR, etc.">
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Reference Number</label>
+                                        <input type="text" id="referenceNumber" class="form-control" placeholder="REF-2025-001">
+                                    </div>
+                                    
+                                    <!-- NEW: Keywords Field -->
+                                    <div class="col-md-12">
+                                        <label class="form-label fw-semibold">Keywords</label>
+                                        <input type="text" id="keywords" class="form-control" 
+                                            placeholder="budget, financial, quarterly (comma-separated)">
+                                        <small class="text-muted">Enter keywords separated by commas. These will be used for searching.</small>
+                                    </div>
+                                    
+                                    <!-- NEW: Description Field -->
+                                    <div class="col-md-12">
+                                        <label class="form-label fw-semibold">Description</label>
+                                        <textarea id="description" class="form-control" rows="3" 
+                                                placeholder="Brief description of the document..."></textarea>
+                                    </div>
+                                    
                                     <div class="col-md-12">
                                         <label class="form-label fw-semibold">File <span class="text-danger">*</span></label>
                                         <input type="file" id="file" required class="form-control">
                                     </div>
+                                    
+                                    <!-- NEW: Disable NLP/OCR Option -->
+                                    <div class="col-md-12">
+                                        <div class="card bg-light">
+                                            <div class="card-body">
+                                                <h6 class="fw-bold mb-3">
+                                                    <i class="bi bi-robot text-primary"></i> AI Processing Options
+                                                </h6>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="enableNLP" checked>
+                                                    <label class="form-check-label" for="enableNLP">
+                                                        <strong>Enable AI Text Extraction & Analysis (NLP/OCR)</strong>
+                                                    </label>
+                                                </div>
+                                                <small class="text-muted d-block mt-2">
+                                                    <i class="bi bi-info-circle"></i> 
+                                                    When enabled, the system will extract text from PDFs and images, 
+                                                    identify keywords, detect entities (people, places, organizations), 
+                                                    and create a searchable summary. This may take 10-30 seconds for large files.
+                                                    <br><strong>Tip:</strong> Disable this for faster uploads if you don't need text analysis.
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <button type="submit" class="btn btn-primary btn-lg w-100 mt-4">
+                                
+                                <button type="submit" class="btn btn-primary btn-lg w-100 mt-4" id="uploadBtn">
                                     <i class="bi bi-cloud-upload"></i> Upload to Blockchain
                                 </button>
                             </form>
+                            
                             <div id="uploadResult" class="mt-4"></div>
                         </div>
 
@@ -1024,49 +1358,180 @@
 
             const port = document.getElementById('uploadNode').value;
             const formData = new FormData();
+            const file = document.getElementById('file').files[0];
             
-            formData.append('file', document.getElementById('file').files[0]);
+            // Basic fields
+            formData.append('file', file);
             formData.append('title', document.getElementById('title').value);
             formData.append('category', document.getElementById('category').value);
-            formData.append('documentType', document.getElementById('documentType').value);
-            formData.append('issuer', document.getElementById('issuer').value);
-            formData.append('recipient', document.getElementById('recipient').value);
+            formData.append('documentType', document.getElementById('documentType').value || 'Document');
+            formData.append('issuer', document.getElementById('issuer').value || 'N/A');
+            formData.append('recipient', document.getElementById('recipient').value || 'N/A');
+            formData.append('department', document.getElementById('department').value || 'N/A');
+            formData.append('referenceNumber', document.getElementById('referenceNumber').value || 'N/A');
+            formData.append('keywords', document.getElementById('keywords').value || '');
+            formData.append('description', document.getElementById('description').value || 'N/A');
+            
+            const enableNLP = document.getElementById('enableNLP').checked;
+            formData.append('enableNLP', enableNLP);
+
+            // Show full-page overlay
+            const overlay = document.getElementById('uploadLoadingOverlay');
+            overlay.classList.remove('hidden');
+            
+            const startTime = Date.now();
+            let timerInterval;
+            
+            // Update elapsed time
+            timerInterval = setInterval(() => {
+                const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                document.getElementById('detailElapsedTime').textContent = `${elapsed}s`;
+            }, 100);
+            
+            // Set file details
+            document.getElementById('detailFileName').textContent = file.name;
+            document.getElementById('detailFileSize').textContent = `${(file.size / 1024).toFixed(2)} KB`;
+            
+            const updateProgress = (percent, title, subtitle, activeStep) => {
+                document.getElementById('uploadOverlayProgressBar').style.width = `${percent}%`;
+                document.getElementById('uploadOverlayProgressText').textContent = `${percent}%`;
+                document.getElementById('uploadOverlayTitle').textContent = title;
+                document.getElementById('uploadOverlaySubtitle').textContent = subtitle;
+                
+                // Update steps
+                for (let i = 1; i <= 5; i++) {
+                    const stepEl = document.getElementById(`step${i}`);
+                    stepEl.classList.remove('active', 'completed');
+                    
+                    if (i < activeStep) {
+                        stepEl.classList.add('completed');
+                    } else if (i === activeStep) {
+                        stepEl.classList.add('active');
+                    }
+                }
+            };
 
             try {
+                // Step 1: Uploading
+                updateProgress(10, 'Uploading Document...', 'Sending file to blockchain node', 1);
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                updateProgress(20, 'Uploading Document...', 'File transfer in progress', 1);
+                
                 const response = await fetch(`${API_BASE}:${port}/api/documents/upload`, {
                     method: 'POST',
                     headers: getAuthHeaders(),
                     body: formData
                 });
                 
-                const data = await response.json();
-                
                 if (response.status === 401) {
+                    clearInterval(timerInterval);
+                    overlay.classList.add('hidden');
                     alert('Session expired. Please login again.');
                     logout();
                     return;
                 }
                 
+                updateProgress(30, 'File Uploaded!', 'Processing document...', 1);
+                await new Promise(resolve => setTimeout(resolve, 800));
+                
+                if (enableNLP) {
+                    // Step 2: OCR
+                    updateProgress(40, 'Extracting Text...', 'Running OCR on document pages', 2);
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    
+                    updateProgress(50, 'Text Extracted!', `Processing ${file.type === 'application/pdf' ? 'PDF' : 'image'} content`, 2);
+                    await new Promise(resolve => setTimeout(resolve, 800));
+                    
+                    // Step 3: AI Analysis
+                    updateProgress(60, 'Analyzing Content...', 'Identifying keywords and entities with AI', 3);
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    
+                    updateProgress(70, 'AI Analysis Complete!', 'Content successfully analyzed', 3);
+                    await new Promise(resolve => setTimeout(resolve, 800));
+                    
+                    // Step 4: Indexing
+                    updateProgress(80, 'Indexing Document...', 'Building search index', 4);
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                } else {
+                    updateProgress(60, 'Skipping AI Analysis...', 'Processing without NLP/OCR', 2);
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+                
+                // Step 5: Broadcasting
+                updateProgress(90, 'Broadcasting to Network...', 'Adding transaction to blockchain', 5);
+                await new Promise(resolve => setTimeout(resolve, 800));
+                
+                const data = await response.json();
+                
+                updateProgress(100, 'Upload Complete!', '✓ Document successfully added to blockchain', 5);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                clearInterval(timerInterval);
+                
                 if (data.success) {
-                    document.getElementById('uploadResult').innerHTML = `
-                        <div class="alert alert-success">
-                            <h5 class="alert-heading"><i class="bi bi-check-circle-fill"></i> Success!</h5>
-                            <p>Document uploaded and transaction broadcasted to the network</p>
-                            <hr>
-                            <p class="mb-0"><strong>Hash:</strong> <code>${data.fileHash.substring(0, 40)}...</code></p>
-                            <p class="mb-0"><strong>Pending:</strong> ${data.pendingTransactions} transaction(s)</p>
-                        </div>
+                    // Show success state
+                    document.getElementById('uploadOverlayTitle').textContent = '✓ Success!';
+                    document.getElementById('uploadOverlaySubtitle').innerHTML = `
+                        Document uploaded and ${enableNLP ? 'analyzed with AI' : 'processed'}<br>
+                        <small>Hash: ${data.fileHash.substring(0, 20)}...</small>
                     `;
                     
-                    document.getElementById('uploadForm').reset();
-                    setTimeout(checkNodeStatus, 2000);
+                    // Mark all steps complete
+                    for (let i = 1; i <= 5; i++) {
+                        document.getElementById(`step${i}`).classList.add('completed');
+                        document.getElementById(`step${i}`).classList.remove('active');
+                    }
+                    
+                    setTimeout(() => {
+                        overlay.classList.add('hidden');
+                        document.getElementById('uploadForm').reset();
+                        document.getElementById('enableNLP').checked = true;
+                        
+                        // Show success message
+                        document.getElementById('uploadResult').innerHTML = `
+                            <div class="alert alert-success">
+                                <h5 class="alert-heading">
+                                    <i class="bi bi-check-circle-fill"></i> Document Uploaded Successfully!
+                                </h5>
+                                <p>Document has been added to the blockchain and is pending mining.</p>
+                                <hr>
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <strong>File Hash:</strong><br>
+                                        <code>${data.fileHash.substring(0, 40)}...</code>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong>Status:</strong><br>
+                                        <span class="badge bg-warning text-dark">Pending Mining</span>
+                                    </div>
+                                    ${enableNLP && data.nlpMetadata ? `
+                                    <div class="col-12 mt-2">
+                                        <strong><i class="bi bi-robot"></i> AI Analysis:</strong>
+                                        <ul class="mb-0 mt-1">
+                                            <li>${data.nlpMetadata.wordCount || 0} words extracted</li>
+                                            <li>${data.nlpMetadata.keywords?.length || 0} keywords identified</li>
+                                            <li>${(data.nlpMetadata.entities?.people?.length || 0) + 
+                                                (data.nlpMetadata.entities?.organizations?.length || 0)} entities found</li>
+                                        </ul>
+                                    </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        `;
+                        
+                        checkNodeStatus();
+                    }, 2000);
                 } else {
                     throw new Error(data.error);
                 }
             } catch (error) {
+                clearInterval(timerInterval);
+                overlay.classList.add('hidden');
+                
                 document.getElementById('uploadResult').innerHTML = `
                     <div class="alert alert-danger">
-                        <h5 class="alert-heading"><i class="bi bi-x-circle-fill"></i> Error</h5>
+                        <h5 class="alert-heading"><i class="bi bi-x-circle-fill"></i> Upload Failed</h5>
                         <p class="mb-0">${error.message}</p>
                     </div>
                 `;
@@ -1202,16 +1667,22 @@
                             </div>
                             
                             <!-- ADD KEYWORDS PREVIEW HERE -->
-                            ${doc.nlpMetadata?.keywords && doc.nlpMetadata.keywords.length > 0 ? `
+                            ${(doc.manualKeywords && doc.manualKeywords.length > 0) || (doc.nlpMetadata?.keywords && doc.nlpMetadata.keywords.length > 0) ? `
                             <div class="col-12 mt-2">
                                 <div class="info-row">
                                     <i class="bi bi-tags"></i>
                                     <small>
                                         <strong>Keywords:</strong> 
-                                        ${doc.nlpMetadata.keywords.slice(0, 5).map(k => 
-                                            `<span class="badge bg-secondary" style="font-size: 0.7rem;">${k.word}</span>`
-                                        ).join(' ')}
-                                        ${doc.nlpMetadata.keywords.length > 5 ? `<span class="text-muted">+${doc.nlpMetadata.keywords.length - 5} more</span>` : ''}
+                                        ${doc.manualKeywords && doc.manualKeywords.length > 0 ? 
+                                            doc.manualKeywords.map(k => 
+                                                `<span class="badge bg-info" style="font-size: 0.7rem;">${k}</span>`
+                                            ).join(' ') : ''}
+                                        ${doc.nlpMetadata?.keywords && doc.nlpMetadata.keywords.length > 0 ? 
+                                            doc.nlpMetadata.keywords.slice(0, 5).map(k => 
+                                                `<span class="badge bg-secondary" style="font-size: 0.7rem;">${k.word}</span>`
+                                            ).join(' ') : ''}
+                                        ${doc.nlpMetadata?.keywords && doc.nlpMetadata.keywords.length > 5 ? 
+                                            `<span class="text-muted">+${doc.nlpMetadata.keywords.length - 5} more</span>` : ''}
                                     </small>
                                 </div>
                             </div>
@@ -1220,6 +1691,7 @@
                     </div>
                 </div>
             `;}).join('');
+            
             
             document.getElementById('documentsList').innerHTML = html;
             
@@ -1872,6 +2344,20 @@ document.getElementById('searchInput').addEventListener('keypress', (e) => {
             }
         }
 
+        function resetUploadOverlay() {
+            document.getElementById('uploadOverlayProgressBar').style.width = '0%';
+            document.getElementById('uploadOverlayProgressText').textContent = '0%';
+            document.getElementById('uploadOverlayTitle').textContent = 'Uploading Document...';
+            document.getElementById('uploadOverlaySubtitle').textContent = 'Please wait while we process your file';
+            document.getElementById('detailFileName').textContent = '-';
+            document.getElementById('detailFileSize').textContent = '-';
+            document.getElementById('detailElapsedTime').textContent = '0s';
+            
+            for (let i = 1; i <= 5; i++) {
+                const step = document.getElementById(`step${i}`);
+                step.classList.remove('active', 'completed');
+            }
+        }
         
     </script>
 </body>

@@ -399,7 +399,17 @@ netstat -an | grep 6003
 # Test WebSocket connection
 wscat -c ws://localhost:6001
 ```
-
+### Add new superadmin
+curl -X POST http://localhost:5001/api/auth/register   -H "Content-Type: application/json"   -d '{
+    "username": "admin",
+    "email": "admin@blockchain.local",
+    "password": "SecureAdmin123!",
+    "fullName": "System Administrator",
+    "phone": "+1234567890",
+    "department": "IT Administration",
+    "role": "admin"
+  }'
+  
 ### MongoDB errors
 
 ```bash
