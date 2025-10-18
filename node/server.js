@@ -807,6 +807,8 @@ app.post('/api/documents/upload', authenticate, isAdmin, upload.single('file'), 
         referenceNumber: referenceNumber || 'N/A',
         description: description || 'N/A',
         manualKeywords: manualKeywords,  // NEW: Store manual keywords separately
+        linkedToDocument: req.body.linkedToDocument || null,  // ADD THIS
+        relationshipType: req.body.relationshipType || null,   // ADD THIS
         fileName: req.file.originalname,
         fileSize: req.file.size,
         fileType: req.file.mimetype,
@@ -1299,6 +1301,84 @@ app.get('/api/blockchain/statistics', authenticate, (req, res) => {
   res.json({ success: true, statistics: stats });
 });
 
+// ============================================
+// DOCUMENT LINKING API ROUTES
+// ============================================
+
+// Get related documents (parent and children)
+app.get('/api/documents/related/:fileHash', authenticate, async (req, res) => {
+  if (!blockchain) {
+    return res.status(503).json({ success: false, error: 'Blockchain not initialized yet' });
+  }
+
+  try {
+    const { fileHash } = req.params;
+    let currentDoc = null;
+    let parentDoc = null;
+    const childrenDocs = [];
+
+    // Find current document
+    for (const block of blockchain.chain) {
+      for (const tx of block.transactions) {
+        if (tx.type === 'document' && tx.data && tx.data.fileHash === fileHash) {
+          currentDoc = {
+            ...tx.data,
+            blockIndex: block.index,
+            timestamp: tx.timestamp
+          };
+          break;
+        }
+      }
+      if (currentDoc) break;
+    }
+
+    if (!currentDoc) {
+      return res.status(404).json({ success: false, error: 'Document not found' });
+    }
+
+    // Find parent (document this one links to)
+    if (currentDoc.linkedToDocument) {
+      for (const block of blockchain.chain) {
+        for (const tx of block.transactions) {
+          if (tx.type === 'document' && tx.data && tx.data.fileHash === currentDoc.linkedToDocument) {
+            parentDoc = {
+              ...tx.data,
+              blockIndex: block.index,
+              timestamp: tx.timestamp
+            };
+            break;
+          }
+        }
+        if (parentDoc) break;
+      }
+    }
+
+    // Find children (documents that link to this one)
+    blockchain.chain.forEach(block => {
+      block.transactions.forEach(tx => {
+        if (tx.type === 'document' && tx.data && tx.data.linkedToDocument === fileHash) {
+          childrenDocs.push({
+            ...tx.data,
+            blockIndex: block.index,
+            timestamp: tx.timestamp
+          });
+        }
+      });
+    });
+
+    res.json({
+      success: true,
+      current: currentDoc,
+      parent: parentDoc,
+      children: childrenDocs.sort((a, b) => new Date(a.uploadedAt) - new Date(b.uploadedAt))
+    });
+
+  } catch (error) {
+    console.error('Get related documents error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Admin only: Manual mining
 app.post('/api/mine', authenticate, isAdmin, async (req, res) => {
   if (!blockchain || !p2pServer) {
@@ -1365,5 +1445,6 @@ process.on('SIGINT', async () => {
   console.log('✅ Server stopped');
   process.exit(0);
 });
+
 
 module.exports = { app, blockchain, p2pServer };
