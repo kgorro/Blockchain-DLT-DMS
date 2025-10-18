@@ -561,85 +561,199 @@
             content: "\f26b"; /* bi-check-circle-fill */
         }
 
-        /* Document Groups Styles */
-        .group-badge {
+        /* Document Linking Styles */
+        .link-badge {
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            padding: 0.25rem 0.75rem;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             color: white;
-            border-radius: 20px;
-            font-size: 0.85rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
         }
 
-        .group-badge:hover {
+        .link-badge:hover {
             transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .document-chain {
+            position: relative;
+        }
+
+        .chain-item {
+            position: relative;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-left: 3px solid #e5e7eb;
+            transition: all 0.3s ease;
+        }
+
+        .chain-item:hover {
+            border-left-color: #10b981;
+            background: #f9fafb;
+        }
+
+        .chain-item.current {
+            border-left-color: #6366f1;
+            background: #eef2ff;
+        }
+
+        .chain-arrow {
+            position: absolute;
+            left: -12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 24px;
+            height: 24px;
+            background: white;
+            border: 3px solid #10b981;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            color: #10b981;
+        }
+
+        .relationship-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .rel-follows { background: #dbeafe; color: #1e40af; }
+        .rel-supports { background: #fef3c7; color: #92400e; }
+        .rel-amends { background: #fce7f3; color: #9f1239; }
+        .rel-cancels { background: #fee2e2; color: #991b1b; }
+        .rel-related { background: #f3f4f6; color: #374151; }
+
+        .link-search-result {
+            padding: 0.75rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .link-search-result:hover {
+            background: #f3f4f6;
+            border-color: #10b981;
+        }
+
+        /* View Mode Styles */
+        .view-mode-active {
+            background-color: #6366f1 !important;
+            color: white !important;
+        }
+
+        /* Tree View Styles */
+        .document-tree {
+            margin-left: 0;
+        }
+
+        .tree-parent {
+            border-left: 4px solid #6366f1;
+            background: linear-gradient(to right, #eef2ff 0%, white 100%);
+        }
+
+        .tree-child {
+            margin-left: 2rem;
+            border-left: 3px solid #10b981;
+            position: relative;
+            background: linear-gradient(to right, #f0fdf4 0%, white 100%);
+        }
+
+        .tree-child::before {
+            content: '└─';
+            position: absolute;
+            left: -2rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #10b981;
+            font-weight: bold;
+        }
+
+        .tree-grandchild {
+            margin-left: 4rem;
+            border-left: 2px solid #fbbf24;
+            background: linear-gradient(to right, #fef3c7 0%, white 100%);
+        }
+
+        .tree-grandchild::before {
+            content: '  └─';
+            position: absolute;
+            left: -4rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #fbbf24;
+            font-weight: bold;
+        }
+
+        /* Grouped View Styles */
+        .group-section {
+            margin-bottom: 2rem;
+        }
+
+        .group-header {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 12px 12px 0 0;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .group-header:hover {
+            transform: translateX(5px);
             box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
         }
 
-        .group-card {
-            border-left: 4px solid #6366f1;
-            transition: all 0.3s ease;
-            cursor: pointer;
+        .group-header.collapsed {
+            border-radius: 12px;
         }
 
-        .group-card:hover {
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            transform: translateX(5px);
+        .group-body {
+            border: 2px solid #e5e7eb;
+            border-top: none;
+            border-radius: 0 0 12px 12px;
+            padding: 1rem;
+            background: #f9fafb;
         }
 
-        .group-timeline {
-            position: relative;
-            padding-left: 2rem;
+        .group-count-badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
         }
 
-        .group-timeline::before {
-            content: '';
-            position: absolute;
-            left: 0.5rem;
-            top: 0;
-            bottom: 0;
-            width: 2px;
-            background: #e5e7eb;
-        }
-
-        .group-timeline-item {
-            position: relative;
-            padding: 1rem 0;
-            margin-bottom: 1rem;
-        }
-
-        .group-timeline-item::before {
-            content: '';
-            position: absolute;
-            left: -1.65rem;
-            top: 1.5rem;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #6366f1;
-            border: 3px solid white;
-            box-shadow: 0 0 0 3px #e5e7eb;
-        }
-
-        .group-type-badge {
+        .parent-indicator {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
             padding: 0.25rem 0.75rem;
             border-radius: 12px;
             font-size: 0.75rem;
             font-weight: 600;
         }
 
-        .group-type-procurement { background: #dbeafe; color: #1e40af; }
-        .group-type-hr { background: #dcfce7; color: #166534; }
-        .group-type-legal { background: #fef3c7; color: #92400e; }
-        .group-type-project { background: #e0e7ff; color: #3730a3; }
-        .group-type-financial { background: #fce7f3; color: #9f1239; }
-        .group-type-other { background: #f3f4f6; color: #374151; }
-
+        .child-indicator {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -887,7 +1001,7 @@
                                         <input type="text" id="title" required class="form-control" placeholder="e.g., Annual Report 2025">
                                     </div>
                                     
-                                    <div class="col-md-6">
+                                    <div class="col-md-12">
                                         <label class="form-label fw-semibold">Category</label>
                                         <select id="category" class="form-select">
                                             <optgroup label="Procurement Documents">
@@ -931,7 +1045,45 @@
                                             </optgroup>
                                         </select>
                                     </div>
-                                    
+                                    <!-- Link to Related Document (Optional) -->
+                                    <div class="col-md-12">
+                                        <label class="form-label fw-semibold">
+                                            <i class="bi bi-link-45deg"></i> Link to Related Document (Optional)
+                                        </label>
+                                        <div class="input-group">
+                                            <input type="text" id="linkedDocumentDisplay" class="form-control" 
+                                                placeholder="No document linked" readonly>
+                                            <input type="hidden" id="linkedDocumentHash">
+                                            <button type="button" class="btn btn-outline-primary" onclick="openLinkModal()">
+                                                <i class="bi bi-search"></i> Find Document
+                                            </button>
+                                            <button type="button" class="btn btn-outline-danger" onclick="clearLinkedDocument()" 
+                                                    id="clearLinkBtn" style="display: none;">
+                                                <i class="bi bi-x"></i>
+                                            </button>
+                                        </div>
+                                        <small class="text-muted">
+                                            Example: Link a Purchase Order to its Purchase Request, or link Quotations to a PR
+                                        </small>
+                                    </div>
+
+                                    <!-- Relationship Type -->
+                                    <div class="col-md-12" id="relationshipTypeDiv" style="display: none;">
+                                        <label class="form-label fw-semibold">Relationship Type</label>
+                                        <select id="relationshipType" class="form-select">
+                                            <option value="related">General - Related to</option>
+                                            <option value="follows">Workflow - Follows from (next step)</option>
+                                            <option value="supports">Supporting - Supports/Evidence for</option>
+                                            <option value="amends">Amendment - Amends/Updates</option>
+                                            <option value="cancels">Cancellation - Cancels/Supersedes</option>
+                                        </select>
+                                        <small class="text-muted">
+                                            <strong>Examples:</strong><br>
+                                            • PO <em>follows</em> PR<br>
+                                            • Quotation <em>supports</em> PR<br>
+                                            • Amended Contract <em>amends</em> Original Contract
+                                        </small>
+                                    </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Document Type</label>
                                         <input type="text" id="documentType" class="form-control" placeholder="Memo, Report, etc.">
@@ -963,23 +1115,6 @@
                                         <input type="text" id="keywords" class="form-control" 
                                             placeholder="budget, financial, quarterly (comma-separated)">
                                         <small class="text-muted">Enter keywords separated by commas. These will be used for searching.</small>
-                                    </div>
-
-                                    <!-- In upload form, after description field -->
-                                    <div class="col-md-12">
-                                        <label class="form-label fw-semibold">
-                                            <i class="bi bi-collection"></i> Document Group (Optional)
-                                        </label>
-                                        <div class="input-group">
-                                            <select id="documentGroup" class="form-select">
-                                                <option value="">-- No Group --</option>
-                                                <!-- Groups will be loaded here -->
-                                            </select>
-                                            <button type="button" class="btn btn-outline-primary" onclick="openGroupModal()">
-                                                <i class="bi bi-plus-circle"></i> New Group
-                                            </button>
-                                        </div>
-                                        <small class="text-muted">Link this document to a group of related documents</small>
                                     </div>
                                     
                                     <!-- NEW: Description Field -->
@@ -1056,9 +1191,35 @@
                         <div class="tab-pane fade" id="documents">
                             <div class="d-flex justify-content-between align-items-center mb-4">
                                 <h4 class="mb-0"><i class="bi bi-file-earmark-text text-info"></i> All Documents</h4>
-                                <button onclick="loadDocuments()" class="btn btn-primary">
-                                    <i class="bi bi-arrow-clockwise"></i> Refresh
-                                </button>
+                                <div class="d-flex gap-2">
+                                    <!-- View Mode Switcher -->
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-sm btn-outline-primary active" 
+                                                onclick="changeViewMode('list')" id="viewModeList">
+                                            <i class="bi bi-list-ul"></i> List
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                onclick="changeViewMode('tree')" id="viewModeTree">
+                                            <i class="bi bi-diagram-3"></i> Tree
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                onclick="changeViewMode('grouped')" id="viewModeGrouped">
+                                            <i class="bi bi-folder2"></i> Grouped
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Group By Selector (for Grouped view) -->
+                                    <select id="groupBySelector" class="form-select form-select-sm" 
+                                            style="width: auto; display: none;" onchange="applyGrouping()">
+                                        <option value="category">Group by Category</option>
+                                        <option value="department">Group by Department</option>
+                                        <option value="documentType">Group by Document Type</option>
+                                    </select>
+                                    
+                                    <button onclick="loadDocuments()" class="btn btn-primary btn-sm">
+                                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                                    </button>
+                                </div>
                             </div>
                             
                             <!-- Advanced Search Box -->
@@ -1085,14 +1246,45 @@
                                                 <label class="form-label fw-semibold">Category</label>
                                                 <select id="filterCategory" class="form-select">
                                                     <option value="all">All Categories</option>
-                                                    <option value="administrative">Administrative</option>
-                                                    <option value="academic">Academic</option>
-                                                    <option value="financial">Financial</option>
-                                                    <option value="legal">Legal</option>
-                                                    <option value="personnel">Personnel/HR</option>
-                                                    <option value="correspondence">Correspondence</option>
-                                                    <option value="projects">Projects</option>
-                                                    <option value="others">Others</option>
+                                                    <optgroup label="Procurement Documents">
+                                                        <option value="procurement-planning">Procurement Planning (APP, PPMP)</option>
+                                                        <option value="procurement-request">Purchase Request (PR)</option>
+                                                        <option value="procurement-rfq">Request for Quotation (RFQ)</option>
+                                                        <option value="procurement-bidding">Public Bidding (ITB/RFP)</option>
+                                                        <option value="procurement-bac">BAC Documents & Resolutions</option>
+                                                        <option value="procurement-award">Notice of Award (NOA)</option>
+                                                        <option value="procurement-contract">Purchase Order / Contract</option>
+                                                        <option value="procurement-delivery">Delivery & Acceptance</option>
+                                                        <option value="procurement-payment">Payment & Disbursement</option>
+                                                    </optgroup>
+                                                    <optgroup label="Administrative Documents">
+                                                        <option value="admin-memo">Memorandum</option>
+                                                        <option value="admin-order">Office Order</option>
+                                                        <option value="admin-policy">Policies & Guidelines</option>
+                                                        <option value="admin-report">Administrative Reports</option>
+                                                    </optgroup>
+                                                    <optgroup label="Financial Documents">
+                                                        <option value="financial-budget">Budget Documents</option>
+                                                        <option value="financial-voucher">Disbursement Vouchers</option>
+                                                        <option value="financial-journal">Journal Entries</option>
+                                                        <option value="financial-report">Financial Reports</option>
+                                                    </optgroup>
+                                                    <optgroup label="Human Resource Documents">
+                                                        <option value="hr-appointment">Appointments</option>
+                                                        <option value="hr-leave">Leave Applications</option>
+                                                        <option value="hr-payroll">Payroll Documents</option>
+                                                        <option value="hr-performance">Performance Evaluation</option>
+                                                    </optgroup>
+                                                    <optgroup label="Legal Documents">
+                                                        <option value="legal-contract">Contracts & Agreements</option>
+                                                        <option value="legal-resolution">Resolutions</option>
+                                                        <option value="legal-compliance">Compliance Documents</option>
+                                                    </optgroup>
+                                                    <optgroup label="Other Documents">
+                                                        <option value="correspondence">Correspondence</option>
+                                                        <option value="reports">Reports</option>
+                                                        <option value="others">Others</option>
+                                                    </optgroup>
                                                 </select>
                                             </div>
                                             
@@ -1130,12 +1322,12 @@
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <!-- Search Results Info -->
                             <div id="searchInfo" class="alert alert-info hidden"></div>
-                            
+
                             <div id="documentsList"></div>
-                            
+
                             <!-- Pagination -->
                             <nav id="paginationNav" style="display: none;">
                                 <ul class="pagination justify-content-center" id="paginationList"></ul>
@@ -1159,6 +1351,49 @@
             </div>
         </div>
     </div>
+
+    <!-- Link Document Modal -->
+<div class="modal fade" id="linkDocumentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-link-45deg"></i> Link to Related Document
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted">
+                    <i class="bi bi-info-circle"></i> 
+                    Link this document to a related document (e.g., link a Purchase Order to its Purchase Request)
+                </p>
+                
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Search for Document to Link</label>
+                    <input type="text" id="linkSearchInput" class="form-control" 
+                           placeholder="Search by title, reference number, or hash...">
+                </div>
+                
+                <div id="linkSearchResults" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Related Documents Modal -->
+<div class="modal fade" id="relatedDocumentsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="relatedDocModalTitle">
+                    <i class="bi bi-diagram-3"></i> Document Chain
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="relatedDocModalBody"></div>
+        </div>
+    </div>
+</div>
 
     <!-- Document Details Modal -->
     <div class="modal fade" id="documentModal" tabindex="-1">
@@ -1193,125 +1428,6 @@
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-
-        <!-- Create/Manage Document Group Modal -->
-    <div class="modal fade" id="documentGroupModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="bi bi-collection"></i> Manage Document Groups
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <ul class="nav nav-tabs mb-3" role="tablist">
-                        <li class="nav-item">
-                            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#createGroupTab">
-                                <i class="bi bi-plus-circle"></i> Create Group
-                            </button>
-                        </li>
-                        <li class="nav-item">
-                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#viewGroupsTab">
-                                <i class="bi bi-list"></i> View Groups
-                            </button>
-                        </li>
-                    </ul>
-                    
-                    <div class="tab-content">
-                        <!-- Create Group Tab -->
-                        <div class="tab-pane fade show active" id="createGroupTab">
-                            <form id="createGroupForm">
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold">Group Name <span class="text-danger">*</span></label>
-                                    <input type="text" id="groupName" class="form-control" required 
-                                           placeholder="e.g., Office Equipment Purchase - COA Compliance 2025">
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold">Group Type / Workflow</label>
-                                    <select id="groupType" class="form-select" onchange="loadGroupTemplate(this.value)">
-                                        <optgroup label="Procurement Workflows (RA 9184)">
-                                            <option value="procurement-small">Small Value Procurement (≤ ₱1M)</option>
-                                            <option value="procurement-public">Public Bidding (> ₱1M)</option>
-                                            <option value="procurement-direct">Direct Contracting/Negotiated</option>
-                                            <option value="procurement-shopping">Shopping (≤ ₱50K per item)</option>
-                                            <option value="procurement-lease">Lease of Real Property</option>
-                                        </optgroup>
-                                        <optgroup label="Other Workflows">
-                                            <option value="hr-recruitment">HR - Recruitment Process</option>
-                                            <option value="project">Project Documents</option>
-                                            <option value="financial-audit">Financial Audit Trail</option>
-                                            <option value="legal-case">Legal Case Files</option>
-                                            <option value="other">Other / Custom</option>
-                                        </optgroup>
-                                    </select>
-                                </div>
-                                
-                                <!-- Template Info Display -->
-                                <div id="groupTemplateInfo" class="alert alert-info hidden">
-                                    <h6 class="fw-bold mb-2">
-                                        <i class="bi bi-info-circle"></i> Expected Documents:
-                                    </h6>
-                                    <ol id="templateDocsList" class="mb-0 small"></ol>
-                                    <small class="text-muted d-block mt-2">
-                                        <i class="bi bi-lightbulb"></i> 
-                                        Tip: Upload documents in sequence as they are generated in your workflow
-                                    </small>
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold">Description</label>
-                                    <textarea id="groupDescription" class="form-control" rows="3" 
-                                              placeholder="Brief description..."></textarea>
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold">Reference Number</label>
-                                    <input type="text" id="groupReference" class="form-control" 
-                                           placeholder="PR-2025-001 or Contract-2025-ABC">
-                                </div>
-                                
-                                <button type="submit" class="btn btn-primary w-100">
-                                    <i class="bi bi-plus-circle"></i> Create Document Group
-                                </button>
-                            </form>
-                            
-                            <div id="createGroupResult" class="mt-3"></div>
-                        </div>
-                        
-                        <!-- View Groups Tab -->
-                        <div class="tab-pane fade" id="viewGroupsTab">
-                            <div class="input-group mb-3">
-                                <span class="input-group-text">
-                                    <i class="bi bi-search"></i>
-                                </span>
-                                <input type="text" id="searchGroups" class="form-control" 
-                                    placeholder="Search groups...">
-                            </div>
-                            
-                            <div id="groupsList"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Group Details Modal -->
-    <div class="modal fade" id="groupDetailsModal" tabindex="-1">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="groupDetailsTitle">
-                        <i class="bi bi-collection"></i> Group Details
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body" id="groupDetailsBody"></div>
             </div>
         </div>
     </div>
@@ -1537,7 +1653,6 @@
                 // Then activate upload tab
                 document.querySelector('[data-bs-target="#upload"]').classList.add('active');
                 document.getElementById('upload').classList.add('show', 'active');
-                loadDocumentGroups();
             }
 
             // Initialize the app
@@ -1621,10 +1736,11 @@
             formData.append('referenceNumber', document.getElementById('referenceNumber').value || 'N/A');
             formData.append('keywords', document.getElementById('keywords').value || '');
             formData.append('description', document.getElementById('description').value || 'N/A');
-            // Add to formData
-            const selectedGroup = document.getElementById('documentGroup').value;
-            if (selectedGroup) {
-                formData.append('groupId', selectedGroup);
+
+            const linkedHash = document.getElementById('linkedDocumentHash').value;
+            if (linkedHash) {
+                formData.append('linkedToDocument', linkedHash);
+                formData.append('relationshipType', document.getElementById('relationshipType').value);
             }
             const enableNLP = document.getElementById('enableNLP').checked;
             formData.append('enableNLP', enableNLP);
@@ -1844,135 +1960,140 @@
 
         function displayDocuments(filteredDocs = null) {
             const docs = filteredDocs || allDocuments;
-            const totalPages = Math.ceil(docs.length / itemsPerPage);
-            const startIndex = (currentPage - 1) * itemsPerPage;
-            const endIndex = startIndex + itemsPerPage;
-            const paginatedDocs = docs.slice(startIndex, endIndex);
             
-            if (paginatedDocs.length === 0 && filteredDocs) {
+            if (docs.length === 0) {
                 document.getElementById('documentsList').innerHTML = `
                     <div class="empty-state">
-                        <i class="bi bi-search"></i>
-                        <h5>No matching documents</h5>
-                        <p>Try adjusting your search terms</p>
+                        <i class="bi bi-${filteredDocs ? 'search' : 'inbox'}"></i>
+                        <h5>No documents ${filteredDocs ? 'found' : 'yet'}</h5>
+                        <p>${filteredDocs ? 'Try adjusting your search terms' : 'Upload your first document to get started'}</p>
                     </div>
                 `;
                 document.getElementById('paginationNav').style.display = 'none';
                 return;
             }
             
-            const html = paginatedDocs.map(doc => {
-                const fileIcon = getFileIcon(doc.fileType);
+            let html = '';
+            
+            // Render based on view mode
+            if (currentViewMode === 'tree') {
+                // Tree view - show parent-child hierarchy
+                const tree = buildDocumentTree(docs);
                 
-                return `
-                <div class="card document-card mb-3" onclick="showDocumentDetails(${JSON.stringify(doc).replace(/"/g, '&quot;')})">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start mb-3">
-                            <div class="d-flex align-items-center flex-grow-1">
-                                <i class="bi ${fileIcon.icon} file-type-icon ${fileIcon.class}"></i>
-                                <div class="d-flex flex-column flex-grow-1">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <h5 class="fw-bold mb-0">${doc.title}</h5>
-                                        ${doc.groupId ? `
-                                            <span class="group-badge" onclick="event.stopPropagation(); showGroupDetails('${doc.groupId}')">
-                                                <i class="bi bi-collection"></i>
-                                                Grouped
-                                            </span>
-                                        ` : ''}
+                if (tree.length === 0) {
+                    html = `
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> 
+                            No parent documents found. ${filteredDocs ? 'Try clearing your search filter.' : ''}
+                        </div>
+                    `;
+                } else {
+                    html = tree.map(doc => renderTreeDocument(doc, 0)).join('');
+                }
+                
+                document.getElementById('paginationNav').style.display = 'none';
+                
+            } else if (currentViewMode === 'grouped') {
+                // Grouped view - group by category/department
+                html = renderGroupedView(docs);
+                document.getElementById('paginationNav').style.display = 'none';
+                
+            } else {
+                // List view - standard pagination
+                const totalPages = Math.ceil(docs.length / itemsPerPage);
+                const startIndex = (currentPage - 1) * itemsPerPage;
+                const endIndex = startIndex + itemsPerPage;
+                const paginatedDocs = docs.slice(startIndex, endIndex);
+                
+                html = paginatedDocs.map(doc => {
+                    const fileIcon = getFileIcon(doc.fileType);
+                    const hasLinks = doc.linkedToDocument || (doc.linkedByDocuments && doc.linkedByDocuments.length > 0);
+                    const linkCount = (doc.linkedToDocument ? 1 : 0) + (doc.linkedByDocuments?.length || 0);
+                    
+                    return `
+                    <div class="card document-card mb-3" onclick="showDocumentDetails(${JSON.stringify(doc).replace(/"/g, '&quot;')})">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div class="d-flex align-items-center flex-grow-1">
+                                    <i class="bi ${fileIcon.icon} file-type-icon ${fileIcon.class}"></i>
+                                    <div class="d-flex flex-column flex-grow-1">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <h5 class="fw-bold mb-0">${doc.title}</h5>
+                                            ${hasLinks ? `
+                                                <span class="link-badge" onclick="event.stopPropagation(); showRelatedDocuments(${JSON.stringify(doc).replace(/"/g, '&quot;')})">
+                                                    <i class="bi bi-link-45deg"></i>
+                                                    ${linkCount} linked
+                                                </span>
+                                            ` : ''}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="d-flex align-items-center gap-2">
-                                <button class="btn btn-sm btn-view-file" onclick="event.stopPropagation(); viewFile('${doc.filePath}', '${doc.fileName}', '${doc.fileType}', '${doc.uploadedBy || doc.uploadedByRole || 'node-1'}')" title="View File">
-                                    <i class="bi bi-eye"></i> View
-                                </button>
-                                <span class="badge bg-primary">Block #${doc.blockIndex}</span>
-                            </div>
-                        </div>
-                        <div class="row g-2">
-                            <div class="col-md-4">
-                                <div class="info-row">
-                                    <i class="bi bi-folder"></i>
-                                    <small><strong>Category:</strong> ${doc.category}</small>
+                                <div class="d-flex align-items-center gap-2">
+                                    <button class="btn btn-sm btn-view-file" onclick="event.stopPropagation(); viewFile('${doc.filePath}', '${doc.fileName}', '${doc.fileType}', '${doc.uploadedBy || 'node-1'}')" title="View File">
+                                        <i class="bi bi-eye"></i> View
+                                    </button>
+                                    <span class="badge bg-primary">Block #${doc.blockIndex}</span>
                                 </div>
                             </div>
-                            <div class="col-md-4">
-                                <div class="info-row">
-                                    <i class="bi bi-tag"></i>
-                                    <small><strong>Type:</strong> ${doc.documentType}</small>
+                            <div class="row g-2">
+                                <div class="col-md-4">
+                                    <div class="info-row">
+                                        <i class="bi bi-folder"></i>
+                                        <small><strong>Category:</strong> ${doc.category}</small>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="info-row">
-                                    <i class="bi bi-person-badge"></i>
-                                    <small><strong>Issuer:</strong> ${doc.issuer}</small>
+                                <div class="col-md-4">
+                                    <div class="info-row">
+                                        <i class="bi bi-tag"></i>
+                                        <small><strong>Type:</strong> ${doc.documentType}</small>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="info-row">
-                                    <i class="bi bi-file-earmark"></i>
-                                    <small><strong>File:</strong> ${doc.fileName}</small>
+                                <div class="col-md-4">
+                                    <div class="info-row">
+                                        <i class="bi bi-person-badge"></i>
+                                        <small><strong>Issuer:</strong> ${doc.issuer}</small>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="info-row">
-                                    <i class="bi bi-hdd"></i>
-                                    <small><strong>Size:</strong> ${(doc.fileSize / 1024).toFixed(2)} KB</small>
+                                <div class="col-md-4">
+                                    <div class="info-row">
+                                        <i class="bi bi-clock"></i>
+                                        <small>${new Date(doc.uploadedAt).toLocaleDateString()}</small>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="info-row">
-                                    <i class="bi bi-clock"></i>
-                                    <small>${new Date(doc.uploadedAt).toLocaleDateString()}</small>
+                                ${(doc.manualKeywords && doc.manualKeywords.length > 0) || (doc.nlpMetadata?.keywords && doc.nlpMetadata.keywords.length > 0) ? `
+                                <div class="col-12 mt-2">
+                                    <div class="info-row">
+                                        <i class="bi bi-tags"></i>
+                                        <small>
+                                            <strong>Keywords:</strong> 
+                                            ${doc.manualKeywords && doc.manualKeywords.length > 0 ? 
+                                                doc.manualKeywords.map(k => 
+                                                    `<span class="badge bg-info" style="font-size: 0.7rem;">${k}</span>`
+                                                ).join(' ') : ''}
+                                            ${doc.nlpMetadata?.keywords && doc.nlpMetadata.keywords.length > 0 ? 
+                                                doc.nlpMetadata.keywords.slice(0, 5).map(k => 
+                                                    `<span class="badge bg-secondary" style="font-size: 0.7rem;">${k.word}</span>`
+                                                ).join(' ') : ''}
+                                        </small>
+                                    </div>
                                 </div>
+                                ` : ''}
                             </div>
-                            
-                            <!-- Keywords Preview -->
-                            ${(doc.manualKeywords && doc.manualKeywords.length > 0) || (doc.nlpMetadata?.keywords && doc.nlpMetadata.keywords.length > 0) ? `
-                            <div class="col-12 mt-2">
-                                <div class="info-row">
-                                    <i class="bi bi-tags"></i>
-                                    <small>
-                                        <strong>Keywords:</strong> 
-                                        ${doc.manualKeywords && doc.manualKeywords.length > 0 ? 
-                                            doc.manualKeywords.map(k => 
-                                        `<span class="badge bg-info" style="font-size: 0.7rem;">${k}</span>`
-                                    ).join(' ') : ''}
-                                ${doc.nlpMetadata?.keywords && doc.nlpMetadata.keywords.length > 0 ? 
-                                    doc.nlpMetadata.keywords.slice(0, 5).map(k => 
-                                        `<span class="badge bg-secondary" style="font-size: 0.7rem;">${k.word}</span>`
-                                    ).join(' ') : ''}
-                                ${doc.nlpMetadata?.keywords && doc.nlpMetadata.keywords.length > 5 ? 
-                                    `<span class="text-muted">+${doc.nlpMetadata.keywords.length - 5} more</span>` : ''}
-                            </small>
                         </div>
                     </div>
-                    ` : ''}
-                    
-                    <!-- Group Description (if part of group) -->
-                    ${doc.groupId ? `
-                    <div class="col-12 mt-2">
-                        <div class="alert alert-info mb-0 py-2">
-                            <i class="bi bi-info-circle"></i>
-                            <small><strong>Part of document group</strong> - Click the "Grouped" badge to view all related documents</small>
-                        </div>
-                    </div>
-                    ` : ''}
-                </div>
-            </div>
-        </div>
-        `;
-    }).join('');
-    
-    document.getElementById('documentsList').innerHTML = html;
-    
-    if (totalPages > 1) {
-        renderPagination(totalPages, docs);
-        document.getElementById('paginationNav').style.display = 'block';
-    } else {
-        document.getElementById('paginationNav').style.display = 'none';
-    }
-}
+                    `;
+                }).join('');
+                
+                if (totalPages > 1) {
+                    renderPagination(totalPages, docs);
+                    document.getElementById('paginationNav').style.display = 'block';
+                } else {
+                    document.getElementById('paginationNav').style.display = 'none';
+                }
+            }
+            
+            document.getElementById('documentsList').innerHTML = html;
+        }
 
         function renderPagination(totalPages, docs) {
             let paginationHtml = '';
@@ -2010,37 +2131,52 @@
             document.getElementById('documents').scrollIntoView({ behavior: 'smooth' });
         }
 
-        function setupSearch() {
-            const searchInput = document.getElementById('searchInput');
-            searchInput.addEventListener('input', (e) => {
-                const searchTerm = e.target.value.toLowerCase();
-                
-                if (searchTerm === '') {
-                    currentPage = 1;
-                    displayDocuments();
-                    return;
-                }
-                
-                const filtered = allDocuments.filter(doc => 
-                    doc.title.toLowerCase().includes(searchTerm) ||
-                    doc.category.toLowerCase().includes(searchTerm) ||
-                    doc.documentType.toLowerCase().includes(searchTerm) ||
-                    doc.issuer.toLowerCase().includes(searchTerm) ||
-                    doc.recipient.toLowerCase().includes(searchTerm) ||
-                    doc.fileName.toLowerCase().includes(searchTerm)
-                );
-                
+        // Simple search handler (real-time filtering)
+        document.getElementById('searchInput')?.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase().trim();
+            
+            if (searchTerm === '') {
+                // Clear search - show all documents
                 currentPage = 1;
-                displayDocuments(filtered);
-            });
-        }
+                isSearchMode = false;
+                document.getElementById('searchInfo').classList.add('hidden');
+                displayDocuments();
+                return;
+            }
+            
+            // Filter documents
+            const filtered = allDocuments.filter(doc => 
+                doc.title.toLowerCase().includes(searchTerm) ||
+                doc.category.toLowerCase().includes(searchTerm) ||
+                doc.documentType.toLowerCase().includes(searchTerm) ||
+                doc.issuer.toLowerCase().includes(searchTerm) ||
+                doc.recipient.toLowerCase().includes(searchTerm) ||
+                doc.fileName.toLowerCase().includes(searchTerm) ||
+                (doc.referenceNumber && doc.referenceNumber.toLowerCase().includes(searchTerm)) ||
+                (doc.department && doc.department.toLowerCase().includes(searchTerm))
+            );
+            
+            currentPage = 1;
+            isSearchMode = true;
+            
+            // Show search info
+            const searchInfo = document.getElementById('searchInfo');
+            searchInfo.innerHTML = `
+                <strong><i class="bi bi-search"></i> Search Results:</strong> 
+                Found ${filtered.length} document(s) matching "${searchTerm}"
+            `;
+            searchInfo.classList.remove('hidden');
+            
+            // Display filtered results
+            displayDocuments(filtered);
+        });
 
-        // Update the existing search input to use simple search
-document.getElementById('searchInput').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        performAdvancedSearch();
-    }
-});
+        // Enter key triggers advanced search
+        document.getElementById('searchInput')?.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                performAdvancedSearch();
+            }
+        });
 
         // Enhanced document display to show NLP metadata
         function showDocumentDetails(doc) {
@@ -2631,273 +2767,6 @@ document.getElementById('searchInput').addEventListener('keypress', (e) => {
             }
         }
 
-        // Global variable to store groups
-    let documentGroups = [];
-
-    // Open group modal
-    function openGroupModal() {
-        loadDocumentGroups();
-        const modal = new bootstrap.Modal(document.getElementById('documentGroupModal'));
-        modal.show();
-    }
-
-    // Load document groups from blockchain
-    async function loadDocumentGroups() {
-        try {
-            const response = await fetch(`${API_BASE}:5001/api/document-groups`, {
-                headers: getAuthHeaders()
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                documentGroups = data.groups;
-                
-                // Update group dropdown in upload form
-                const groupSelect = document.getElementById('documentGroup');
-                groupSelect.innerHTML = '<option value="">-- No Group --</option>';
-                
-                data.groups.forEach(group => {
-                    const option = document.createElement('option');
-                    option.value = group.groupId;
-                    option.textContent = `${group.groupName} (${group.documentCount || 0} docs)`;
-                    groupSelect.appendChild(option);
-                });
-                
-                // Display groups list
-                displayGroupsList(data.groups);
-            }
-        } catch (error) {
-            console.error('Error loading groups:', error);
-        }
-    }
-
-    // Display groups list
-    function displayGroupsList(groups) {
-            const groupsList = document.getElementById('groupsList');
-            
-            if (groups.length === 0) {
-                groupsList.innerHTML = `
-                    <div class="text-center text-muted py-4">
-                        <i class="bi bi-collection" style="font-size: 3rem;"></i>
-                        <p class="mt-2">No document groups yet</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            groupsList.innerHTML = groups.map(group => `
-                <div class="card group-card mb-3" onclick="showGroupDetails('${group.groupId}')">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <h6 class="fw-bold mb-0">
-                                <i class="bi bi-collection"></i> ${group.groupName}
-                                ${group.status === 'pending' ? `
-                                    <span class="badge bg-warning text-dark ms-2">
-                                        <i class="bi bi-clock"></i> Pending Mining
-                                    </span>
-                                ` : ''}
-                            </h6>
-                            <span class="group-type-badge group-type-${group.groupType}">
-                                ${group.groupType}
-                            </span>
-                        </div>
-                        <p class="text-muted small mb-2">${group.description || 'No description'}</p>
-                        <div class="d-flex gap-3">
-                            <small class="text-muted">
-                                <i class="bi bi-files"></i> ${group.documentCount || 0} documents
-                            </small>
-                            <small class="text-muted">
-                                <i class="bi bi-clock"></i> ${new Date(group.createdAt).toLocaleDateString()}
-                            </small>
-                            ${group.referenceNumber ? `
-                                <small class="text-muted">
-                                    <i class="bi bi-hash"></i> ${group.referenceNumber}
-                                </small>
-                            ` : ''}
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-    }
-
-    document.getElementById('createGroupForm')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const groupData = {
-            groupName: document.getElementById('groupName').value,
-            groupType: document.getElementById('groupType').value,
-            description: document.getElementById('groupDescription').value,
-            referenceNumber: document.getElementById('groupReference').value
-        };
-        
-        try {
-            const response = await fetch(`${API_BASE}:5001/api/document-groups`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...getAuthHeaders()
-                },
-                body: JSON.stringify(groupData)
-            });
-            
-            const data = await response.json();
-            
-            const resultDiv = document.getElementById('createGroupResult');
-            
-            if (data.success) {
-                resultDiv.innerHTML = `
-                    <div class="alert alert-success">
-                        <h6 class="alert-heading">
-                            <i class="bi bi-check-circle"></i> Group Created!
-                        </h6>
-                        <p class="mb-0">Group ID: <code>${data.groupId}</code></p>
-                    </div>
-                `;
-                
-                document.getElementById('createGroupForm').reset();
-                
-                // Reload groups
-                await loadDocumentGroups();
-                
-                // Switch to view tab
-                setTimeout(() => {
-                    document.querySelector('[data-bs-target="#viewGroupsTab"]').click();
-                }, 1500);
-            } else {
-                resultDiv.innerHTML = `
-                    <div class="alert alert-danger">
-                        ${data.error}
-                    </div>
-                `;
-            }
-        } catch (error) {
-            document.getElementById('createGroupResult').innerHTML = `
-                <div class="alert alert-danger">
-                    Error: ${error.message}
-                </div>
-            `;
-        } // ← THIS CLOSING BRACE WAS MISSING!
-    });
-
-    // Show group details
-    async function showGroupDetails(groupId) {
-        try {
-            const response = await fetch(`${API_BASE}:5001/api/document-groups/${groupId}`, {
-                headers: getAuthHeaders()
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                const group = data.group;
-                
-                document.getElementById('groupDetailsTitle').innerHTML = `
-                    <i class="bi bi-collection"></i> ${group.groupName}
-                `;
-                
-                document.getElementById('groupDetailsBody').innerHTML = `
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <div class="card bg-light">
-                                <div class="card-body">
-                                    <div class="row g-3">
-                                        <div class="col-md-3">
-                                            <small class="text-muted">Group Type:</small><br>
-                                            <span class="group-type-badge group-type-${group.groupType}">
-                                                ${group.groupType}
-                                            </span>
-                                        </div>
-                                        <div class="col-md-3">
-                                            <small class="text-muted">Documents:</small><br>
-                                            <strong>${group.documents.length}</strong>
-                                        </div>
-                                        <div class="col-md-3">
-                                            <small class="text-muted">Created:</small><br>
-                                            ${new Date(group.createdAt).toLocaleDateString()}
-                                        </div>
-                                        <div class="col-md-3">
-                                            <small class="text-muted">Created By:</small><br>
-                                            ${group.createdBy}
-                                        </div>
-                                        ${group.referenceNumber ? `
-                                        <div class="col-12">
-                                            <small class="text-muted">Reference:</small><br>
-                                            <code>${group.referenceNumber}</code>
-                                        </div>
-                                        ` : ''}
-                                        <div class="col-12">
-                                            <small class="text-muted">Description:</small><br>
-                                            ${group.description || 'No description'}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-12">
-                            <h6 class="fw-bold">
-                                <i class="bi bi-files"></i> Documents in this Group
-                            </h6>
-                        </div>
-                        
-                        <div class="col-12">
-                            <div class="group-timeline">
-                                ${group.documents.length === 0 ? `
-                                    <div class="alert alert-info">
-                                        <i class="bi bi-info-circle"></i> No documents in this group yet
-                                    </div>
-                                ` : group.documents.map((doc, idx) => `
-                                    <div class="group-timeline-item">
-                                        <div class="card" onclick="showDocumentDetails(${JSON.stringify(doc).replace(/"/g, '&quot;')})">
-                                            <div class="card-body">
-                                                <div class="d-flex justify-content-between align-items-start">
-                                                    <div>
-                                                        <h6 class="fw-bold mb-1">${doc.title}</h6>
-                                                        <small class="text-muted">
-                                                            ${doc.documentType} • ${doc.category}
-                                                        </small>
-                                                    </div>
-                                                    <span class="badge bg-primary">
-                                                        #${idx + 1}
-                                                    </span>
-                                                </div>
-                                                <div class="mt-2">
-                                                    <small class="text-muted">
-                                                        <i class="bi bi-calendar"></i> ${new Date(doc.uploadedAt).toLocaleString()}
-                                                    </small>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    </div>
-                `;
-                
-                // Close group modal
-                bootstrap.Modal.getInstance(document.getElementById('documentGroupModal'))?.hide();
-                
-                // Show details modal
-                const modal = new bootstrap.Modal(document.getElementById('groupDetailsModal'));
-                modal.show();
-            }
-        } catch (error) {
-            alert('Error loading group details: ' + error.message);
-        }
-    }
-
-    // Load groups when app starts
-    document.addEventListener('DOMContentLoaded', () => {
-        // ... existing code ...
-        
-        // Load groups after login
-        if (!isGuest && authToken) {
-            loadDocumentGroups();
-        }
-    });
-    
     // Auto node selection with health check and load balancing
     let availableNodes = [5001, 5002, 5003];
     let nodeHealthStatus = {};
@@ -2997,167 +2866,495 @@ document.getElementById('searchInput').addEventListener('keypress', (e) => {
         }
     }
 
-    // Philippine Government Procurement Templates
-    const procurementTemplates = {
-        'procurement-small': {
-            name: 'Small Value Procurement (≤ ₱1M)',
-            description: 'For procurement not exceeding One Million Pesos',
-            expectedDocs: [
-                'Purchase Request (PR)',
-                'Request for Quotation (RFQ) - at least 3 suppliers',
-                'Price Quotations from Suppliers',
-                'Abstract of Quotations',
-                'BAC Resolution/Approval',
-                'Purchase Order (PO)',
-                'Delivery Receipt / Inspection Report',
-                'Invoice',
-                'Disbursement Voucher'
-            ]
-        },
-        'procurement-public': {
-            name: 'Public Bidding (> ₱1M)',
-            description: 'For procurement exceeding One Million Pesos',
-            expectedDocs: [
-                'Annual Procurement Plan (APP)',
-                'Project Procurement Management Plan (PPMP)',
-                'Purchase Request (PR)',
-                'Approved Budget for Contract (ABC)',
-                'Invitation to Bid (ITB)',
-                'Bidding Documents',
-                'Pre-bid Conference Minutes',
-                'Bid Opening Records',
-                'Bid Evaluation Report',
-                'Post-Qualification Report',
-                'BAC Resolution - Award',
-                'Notice of Award (NOA)',
-                'Contract / Purchase Order',
-                'Performance Security',
-                'Notice to Proceed',
-                'Delivery Documents',
-                'Inspection & Acceptance Report',
-                'Invoice',
-                'Disbursement Voucher'
-            ]
-        },
-        'procurement-direct': {
-            name: 'Direct Contracting / Negotiated Procurement',
-            description: 'Alternative mode of procurement',
-            expectedDocs: [
-                'Purchase Request (PR)',
-                'Justification for Direct Contracting',
-                'Approval from Higher Authority',
-                'Price Quotation',
-                'BAC Resolution',
-                'Contract / Purchase Order',
-                'Delivery & Acceptance',
-                'Payment Documents'
-            ]
-        },
-        'procurement-shopping': {
-            name: 'Shopping (≤ ₱50,000 per item)',
-            description: 'For readily available off-the-shelf goods',
-            expectedDocs: [
-                'Purchase Request (PR)',
-                'Market Canvass (at least 3)',
-                'Abstract of Canvass',
-                'Approval',
-                'Purchase Order',
-                'Delivery Receipt',
-                'Invoice',
-                'Disbursement Voucher'
-            ]
-        },
-        'procurement-lease': {
-            name: 'Lease of Real Property',
-            description: 'For leasing office/warehouse space',
-            expectedDocs: [
-                'Request for Lease',
-                'Property Inspection Report',
-                'Market Survey',
-                'Comparative Analysis',
-                'BAC Recommendation',
-                'Approval',
-                'Lease Contract',
-                'Monthly Billing/Invoices',
-                'Payment Records'
-            ]
-        },
-        'hr-recruitment': {
-            name: 'HR Recruitment Process',
-            description: 'Complete hiring workflow',
-            expectedDocs: [
-                'Request for Personnel',
-                'Job Posting / Announcement',
-                'Applications Received',
-                'Shortlist',
-                'Interview Schedule & Results',
-                'Background Check',
-                'Job Offer',
-                'Acceptance Letter',
-                'Appointment Papers',
-                'Oath of Office'
-            ]
-        },
-        'project': {
-            name: 'Project Documentation',
-            description: 'Complete project lifecycle',
-            expectedDocs: [
-                'Project Proposal',
-                'Budget Approval',
-                'Project Charter',
-                'Work Plan',
-                'Progress Reports',
-                'Financial Reports',
-                'Completion Report',
-                'Evaluation Report'
-            ]
-        },
-        'financial-audit': {
-            name: 'Financial Audit Trail',
-            description: 'Complete audit documentation',
-            expectedDocs: [
-                'Audit Notice',
-                'Financial Statements',
-                'Supporting Documents',
-                'Audit Findings',
-                'Management Response',
-                'Corrective Action Plan',
-                'Audit Report'
-            ]
-        },
-        'legal-case': {
-            name: 'Legal Case File',
-            description: 'Complete case documentation',
-            expectedDocs: [
-                'Complaint/Petition',
-                'Answer/Reply',
-                'Evidence Submitted',
-                'Court Orders',
-                'Hearing Transcripts',
-                'Decision/Resolution',
-                'Appeal Documents (if any)'
-            ]
-        }
-    };
+    // Global variable to store selected linked document
+    let selectedLinkedDocument = null;
 
-    // Load template info when group type is selected
-    function loadGroupTemplate(templateType) {
-        const template = procurementTemplates[templateType];
-        const templateInfo = document.getElementById('groupTemplateInfo');
-        const templateDocsList = document.getElementById('templateDocsList');
+    // Open link modal
+    function openLinkModal() {
+        const modal = new bootstrap.Modal(document.getElementById('linkDocumentModal'));
+        modal.show();
         
-        if (template) {
-            templateDocsList.innerHTML = template.expectedDocs.map(doc => 
-                `<li>${doc}</li>`
-            ).join('');
+        // Load recent documents
+        loadLinkableDocuments('');
+    }
+
+    // Clear linked document
+    function clearLinkedDocument() {
+        selectedLinkedDocument = null;
+        document.getElementById('linkedDocumentDisplay').value = '';
+        document.getElementById('linkedDocumentHash').value = '';
+        document.getElementById('clearLinkBtn').style.display = 'none';
+        document.getElementById('relationshipTypeDiv').style.display = 'none';
+    }
+
+    // Search for linkable documents
+    document.getElementById('linkSearchInput')?.addEventListener('input', (e) => {
+        const query = e.target.value;
+        loadLinkableDocuments(query);
+    });
+
+    // Load linkable documents
+    async function loadLinkableDocuments(query) {
+        try {
+            const response = await fetch(`${API_BASE}:5001/api/documents`, {
+                headers: getAuthHeaders()
+            });
             
-            document.getElementById('groupDescription').value = template.description;
-            templateInfo.classList.remove('hidden');
-        } else {
-            templateInfo.classList.add('hidden');
-            document.getElementById('groupDescription').value = '';
+            const data = await response.json();
+            
+            if (data.success) {
+                let docs = data.documents;
+                
+                // Filter by search query
+                if (query) {
+                    docs = docs.filter(doc => 
+                        doc.title.toLowerCase().includes(query.toLowerCase()) ||
+                        doc.referenceNumber?.toLowerCase().includes(query.toLowerCase()) ||
+                        doc.fileHash.includes(query)
+                    );
+                }
+                
+                // Take most recent 20
+                docs = docs.slice(0, 20);
+                
+                const resultsDiv = document.getElementById('linkSearchResults');
+                
+                if (docs.length === 0) {
+                    resultsDiv.innerHTML = `
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> No documents found
+                        </div>
+                    `;
+                    return;
+                }
+                
+                resultsDiv.innerHTML = docs.map(doc => `
+                    <div class="link-search-result" onclick="selectLinkedDocument('${doc.fileHash}', '${doc.title.replace(/'/g, "\\'")}', '${doc.referenceNumber || 'N/A'}', '${doc.category}')">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="fw-bold mb-1">${doc.title}</h6>
+                                <small class="text-muted">
+                                    ${doc.referenceNumber || 'No ref'} • ${doc.category} • ${doc.documentType}
+                                </small>
+                            </div>
+                            <span class="badge bg-primary">Block #${doc.blockIndex}</span>
+                        </div>
+                        <small class="text-muted d-block mt-1">
+                            <i class="bi bi-calendar"></i> ${new Date(doc.uploadedAt).toLocaleDateString()}
+                        </small>
+                    </div>
+                `).join('');
+            }
+        } catch (error) {
+            console.error('Error loading linkable documents:', error);
         }
     }
+
+    // Select linked document
+    function selectLinkedDocument(fileHash, title, refNumber, category) {
+        selectedLinkedDocument = { fileHash, title, refNumber, category };
+        
+        document.getElementById('linkedDocumentDisplay').value = `${title} (${refNumber})`;
+        document.getElementById('linkedDocumentHash').value = fileHash;
+        document.getElementById('clearLinkBtn').style.display = 'inline-block';
+        document.getElementById('relationshipTypeDiv').style.display = 'block';
+        
+        // Close modal
+        bootstrap.Modal.getInstance(document.getElementById('linkDocumentModal')).hide();
+    }
+
+    
+    // Show related documents
+    async function showRelatedDocuments(doc) {
+        try {
+            const response = await fetch(`${API_BASE}:5001/api/documents/related/${doc.fileHash}`, {
+                headers: getAuthHeaders()
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                const modalTitle = document.getElementById('relatedDocModalTitle');
+                const modalBody = document.getElementById('relatedDocModalBody');
+                
+                modalTitle.innerHTML = `
+                    <i class="bi bi-diagram-3"></i> Document Chain: ${doc.title}
+                `;
+                
+                modalBody.innerHTML = `
+                    <div class="row g-3">
+                        <!-- Parent Document -->
+                        ${data.parent ? `
+                        <div class="col-12">
+                            <h6 class="fw-bold">
+                                <i class="bi bi-arrow-up-circle text-primary"></i> 
+                                Referenced Document (Parent)
+                            </h6>
+                            <div class="chain-item">
+                                <div class="chain-arrow">
+                                    <i class="bi bi-arrow-down"></i>
+                                </div>
+                                <div class="card" onclick="showDocumentDetails(${JSON.stringify(data.parent).replace(/"/g, '&quot;')})">
+                                    <div class="card-body">
+                                        <h6 class="fw-bold">${data.parent.title}</h6>
+                                        <p class="text-muted small mb-2">
+                                            ${data.parent.referenceNumber} • ${data.parent.category}
+                                        </p>
+                                        ${doc.relationshipType ? `
+                                            <span class="relationship-badge rel-${doc.relationshipType}">
+                                                ${doc.relationshipType}
+                                            </span>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        ` : ''}
+                        
+                        <!-- Current Document -->
+                        <div class="col-12">
+                            <h6 class="fw-bold">
+                                <i class="bi bi-file-earmark-text text-success"></i> 
+                                Current Document
+                            </h6>
+                            <div class="chain-item current">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6 class="fw-bold">${doc.title}</h6>
+                                        <p class="text-muted small mb-0">
+                                            ${doc.referenceNumber} • ${doc.category}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Children Documents -->
+                        ${data.children && data.children.length > 0 ? `
+                        <div class="col-12">
+                            <h6 class="fw-bold">
+                                <i class="bi bi-arrow-down-circle text-info"></i> 
+                                Documents Referencing This (${data.children.length})
+                            </h6>
+                            ${data.children.map(child => `
+                                <div class="chain-item">
+                                    <div class="chain-arrow">
+                                        <i class="bi bi-arrow-down"></i>
+                                    </div>
+                                    <div class="card" onclick="showDocumentDetails(${JSON.stringify(child).replace(/"/g, '&quot;')})">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold">${child.title}</h6>
+                                            <p class="text-muted small mb-2">
+                                                ${child.referenceNumber} • ${child.category}
+                                            </p>
+                                            ${child.relationshipType ? `
+                                                <span class="relationship-badge rel-${child.relationshipType}">
+                                                    ${child.relationshipType}
+                                                </span>
+                                            ` : ''}
+                                            <small class="text-muted d-block mt-1">
+                                                <i class="bi bi-calendar"></i> ${new Date(child.uploadedAt).toLocaleDateString()}
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        ` : `
+                        <div class="col-12">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle"></i> 
+                                No documents are linked to this document yet
+                            </div>
+                        </div>
+                        `}
+                    </div>
+                `;
+                
+                const modal = new bootstrap.Modal(document.getElementById('relatedDocumentsModal'));
+                modal.show();
+            }
+        } catch (error) {
+            alert('Error loading related documents: ' + error.message);
+        }
+    }
+    // Global view mode
+    let currentViewMode = 'list'; // list, tree, or grouped
+    let currentGroupBy = 'category';
+
+    // Change view mode
+    function changeViewMode(mode) {
+        currentViewMode = mode;
+        
+        // Update button states - with null checks
+        const buttons = document.querySelectorAll('.btn-group button');
+        if (buttons && buttons.length > 0) {
+            buttons.forEach(btn => {
+                if (btn) {
+                    btn.classList.remove('active', 'view-mode-active');
+                }
+            });
+        }
+        
+        // Activate selected button
+        const modeButton = document.getElementById(`viewMode${mode.charAt(0).toUpperCase() + mode.slice(1)}`);
+        if (modeButton) {
+            modeButton.classList.add('active', 'view-mode-active');
+        }
+        
+        // Show/hide group selector
+        const groupSelector = document.getElementById('groupBySelector');
+        if (groupSelector) {
+            groupSelector.style.display = mode === 'grouped' ? 'block' : 'none';
+        }
+        
+        // Re-render documents with current search filter if active
+        const searchTerm = document.getElementById('searchInput')?.value?.toLowerCase().trim();
+        
+        if (searchTerm && isSearchMode) {
+            // Re-apply search filter
+            const filtered = allDocuments.filter(doc => 
+                doc.title.toLowerCase().includes(searchTerm) ||
+                doc.category.toLowerCase().includes(searchTerm) ||
+                doc.documentType.toLowerCase().includes(searchTerm) ||
+                doc.issuer.toLowerCase().includes(searchTerm) ||
+                doc.recipient.toLowerCase().includes(searchTerm) ||
+                doc.fileName.toLowerCase().includes(searchTerm) ||
+                (doc.referenceNumber && doc.referenceNumber.toLowerCase().includes(searchTerm))
+            );
+            displayDocuments(filtered);
+        } else {
+            displayDocuments();
+        }
+    }
+
+    // Apply grouping
+    function applyGrouping() {
+        const selector = document.getElementById('groupBySelector');
+        if (selector) {
+            currentGroupBy = selector.value;
+            displayDocuments();
+        }
+    }
+
+    // Build document tree structure
+    function buildDocumentTree(docs) {
+        const docMap = new Map();
+        const roots = [];
+        
+        // Create map of all documents
+        docs.forEach(doc => {
+            docMap.set(doc.fileHash, { ...doc, children: [] });
+        });
+        
+        // Build tree structure
+        docs.forEach(doc => {
+            if (doc.linkedToDocument) {
+                // This is a child document
+                const parent = docMap.get(doc.linkedToDocument);
+                if (parent) {
+                    parent.children.push(docMap.get(doc.fileHash));
+                } else {
+                    // Parent not found, treat as root
+                    roots.push(docMap.get(doc.fileHash));
+                }
+            } else {
+                // This is a root document (parent)
+                roots.push(docMap.get(doc.fileHash));
+            }
+        });
+        
+        return roots;
+    }
+
+    // Count children recursively
+    function countChildren(doc) {
+        let count = doc.children ? doc.children.length : 0;
+        if (doc.children) {
+            doc.children.forEach(child => {
+                count += countChildren(child);
+            });
+        }
+        return count;
+    }
+    
+    // Render document in tree view
+    function renderTreeDocument(doc, level = 0) {
+        const fileIcon = getFileIcon(doc.fileType);
+        const childCount = countChildren(doc);
+        
+        let treeClass = '';
+        let indicator = '';
+        
+        if (level === 0) {
+            treeClass = 'tree-parent';
+            if (doc.children && doc.children.length > 0) {
+                indicator = `<span class="parent-indicator"><i class="bi bi-diagram-3"></i> Parent (${childCount} linked)</span>`;
+            }
+        } else if (level === 1) {
+            treeClass = 'tree-child';
+            indicator = `<span class="child-indicator"><i class="bi bi-arrow-return-right"></i> ${doc.relationshipType || 'linked'}</span>`;
+        } else {
+            treeClass = 'tree-grandchild';
+            indicator = `<span class="child-indicator"><i class="bi bi-arrow-return-right"></i> ${doc.relationshipType || 'linked'}</span>`;
+        }
+        
+        let html = `
+            <div class="card document-card mb-3 ${treeClass}" onclick="showDocumentDetails(${JSON.stringify(doc).replace(/"/g, '&quot;')})">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div class="d-flex align-items-center flex-grow-1 gap-2">
+                            <i class="bi ${fileIcon.icon} file-type-icon ${fileIcon.class}"></i>
+                            <div>
+                                <h6 class="fw-bold mb-1">
+                                    ${doc.title}
+                                    ${indicator}
+                                </h6>
+                                <small class="text-muted">
+                                    ${doc.referenceNumber || 'No ref'} • ${doc.category} • ${doc.documentType}
+                                </small>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <button class="btn btn-sm btn-view-file" onclick="event.stopPropagation(); viewFile('${doc.filePath}', '${doc.fileName}', '${doc.fileType}', '${doc.uploadedBy || 'node-1'}')" title="View File">
+                                <i class="bi bi-eye"></i> View
+                            </button>
+                            <span class="badge bg-primary">Block #${doc.blockIndex}</span>
+                        </div>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <small class="text-muted">
+                                <i class="bi bi-person-badge"></i> ${doc.issuer}
+                            </small>
+                        </div>
+                        <div class="col-md-6">
+                            <small class="text-muted">
+                                <i class="bi bi-clock"></i> ${new Date(doc.uploadedAt).toLocaleDateString()}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Render children recursively
+        if (doc.children && doc.children.length > 0) {
+            doc.children.forEach(child => {
+                html += renderTreeDocument(child, level + 1);
+            });
+        }
+        
+        return html;
+    }
+
+    // Group documents by field
+    function groupDocuments(docs, groupBy) {
+        const groups = {};
+        
+        docs.forEach(doc => {
+            const key = doc[groupBy] || 'Other';
+            if (!groups[key]) {
+                groups[key] = [];
+            }
+            groups[key].push(doc);
+        });
+        
+        return groups;
+    }
+
+    // Render grouped view
+    function renderGroupedView(docs) {
+        const grouped = groupDocuments(docs, currentGroupBy);
+        const sortedKeys = Object.keys(grouped).sort();
+        
+        let html = '';
+        
+        sortedKeys.forEach(key => {
+            const groupDocs = grouped[key];
+            const groupId = `group-${key.replace(/\s+/g, '-')}`;
+            
+            html += `
+                <div class="group-section">
+                    <div class="group-header" onclick="toggleGroup('${groupId}')">
+                        <div>
+                            <i class="bi bi-folder2"></i>
+                            <strong>${key}</strong>
+                        </div>
+                        <div class="d-flex align-items-center gap-3">
+                            <span class="group-count-badge">${groupDocs.length} document${groupDocs.length !== 1 ? 's' : ''}</span>
+                            <i class="bi bi-chevron-down" id="${groupId}-icon"></i>
+                        </div>
+                    </div>
+                    <div class="group-body" id="${groupId}" style="display: block;">
+                        ${groupDocs.map(doc => {
+                            const fileIcon = getFileIcon(doc.fileType);
+                            return `
+                                <div class="card document-card mb-2" onclick="showDocumentDetails(${JSON.stringify(doc).replace(/"/g, '&quot;')})">
+                                    <div class="card-body py-2">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div class="d-flex align-items-center gap-2 flex-grow-1">
+                                                <i class="bi ${fileIcon.icon} ${fileIcon.class}" style="font-size: 1.5rem;"></i>
+                                                <div>
+                                                    <h6 class="fw-bold mb-0">${doc.title}</h6>
+                                                    <small class="text-muted">
+                                                        ${doc.referenceNumber || 'No ref'} • ${doc.documentType}
+                                                        ${doc.linkedToDocument ? ` • <span class="badge bg-success">Linked</span>` : ''}
+                                                    </small>
+                                                </div>
+                                            </div>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <button class="btn btn-sm btn-view-file" onclick="event.stopPropagation(); viewFile('${doc.filePath}', '${doc.fileName}', '${doc.fileType}', '${doc.uploadedBy || "node-1"}')" title="View File">
+                                                    <i class="bi bi-eye"></i>
+                                                </button>
+                                                <span class="badge bg-primary">#${doc.blockIndex}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        });
+        
+        return html;
+    }
+    
+    // Toggle group collapse
+    function toggleGroup(groupId) {
+        const groupBody = document.getElementById(groupId);
+        const icon = document.getElementById(`${groupId}-icon`);
+        
+        if (!groupBody || !icon) {
+            console.error('Group elements not found:', groupId);
+            return;
+        }
+        
+        const header = icon.closest('.group-header');
+        
+        if (groupBody.style.display === 'none') {
+            groupBody.style.display = 'block';
+            icon.classList.remove('bi-chevron-right');
+            icon.classList.add('bi-chevron-down');
+            if (header) header.classList.remove('collapsed');
+        } else {
+            groupBody.style.display = 'none';
+            icon.classList.remove('bi-chevron-down');
+            icon.classList.add('bi-chevron-right');
+            if (header) header.classList.add('collapsed');
+        }
+    }
+
+    // Wait for DOM to be ready before setting up view mode
+    document.addEventListener('DOMContentLoaded', () => {
+        // Initialize view mode buttons
+        const listBtn = document.getElementById('viewModeList');
+        if (listBtn) {
+            listBtn.classList.add('active', 'view-mode-active');
+        }
+    });
     </script>
 </body>
 </html>

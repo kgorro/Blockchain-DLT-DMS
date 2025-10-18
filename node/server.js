@@ -807,7 +807,8 @@ app.post('/api/documents/upload', authenticate, isAdmin, upload.single('file'), 
         referenceNumber: referenceNumber || 'N/A',
         description: description || 'N/A',
         manualKeywords: manualKeywords,  // NEW: Store manual keywords separately
-        groupId: req.body.groupId || null,
+        linkedToDocument: req.body.linkedToDocument || null,  // ADD THIS
+        relationshipType: req.body.relationshipType || null,   // ADD THIS
         fileName: req.file.originalname,
         fileSize: req.file.size,
         fileType: req.file.mimetype,
@@ -1300,6 +1301,84 @@ app.get('/api/blockchain/statistics', authenticate, (req, res) => {
   res.json({ success: true, statistics: stats });
 });
 
+// ============================================
+// DOCUMENT LINKING API ROUTES
+// ============================================
+
+// Get related documents (parent and children)
+app.get('/api/documents/related/:fileHash', authenticate, async (req, res) => {
+  if (!blockchain) {
+    return res.status(503).json({ success: false, error: 'Blockchain not initialized yet' });
+  }
+
+  try {
+    const { fileHash } = req.params;
+    let currentDoc = null;
+    let parentDoc = null;
+    const childrenDocs = [];
+
+    // Find current document
+    for (const block of blockchain.chain) {
+      for (const tx of block.transactions) {
+        if (tx.type === 'document' && tx.data && tx.data.fileHash === fileHash) {
+          currentDoc = {
+            ...tx.data,
+            blockIndex: block.index,
+            timestamp: tx.timestamp
+          };
+          break;
+        }
+      }
+      if (currentDoc) break;
+    }
+
+    if (!currentDoc) {
+      return res.status(404).json({ success: false, error: 'Document not found' });
+    }
+
+    // Find parent (document this one links to)
+    if (currentDoc.linkedToDocument) {
+      for (const block of blockchain.chain) {
+        for (const tx of block.transactions) {
+          if (tx.type === 'document' && tx.data && tx.data.fileHash === currentDoc.linkedToDocument) {
+            parentDoc = {
+              ...tx.data,
+              blockIndex: block.index,
+              timestamp: tx.timestamp
+            };
+            break;
+          }
+        }
+        if (parentDoc) break;
+      }
+    }
+
+    // Find children (documents that link to this one)
+    blockchain.chain.forEach(block => {
+      block.transactions.forEach(tx => {
+        if (tx.type === 'document' && tx.data && tx.data.linkedToDocument === fileHash) {
+          childrenDocs.push({
+            ...tx.data,
+            blockIndex: block.index,
+            timestamp: tx.timestamp
+          });
+        }
+      });
+    });
+
+    res.json({
+      success: true,
+      current: currentDoc,
+      parent: parentDoc,
+      children: childrenDocs.sort((a, b) => new Date(a.uploadedAt) - new Date(b.uploadedAt))
+    });
+
+  } catch (error) {
+    console.error('Get related documents error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Admin only: Manual mining
 app.post('/api/mine', authenticate, isAdmin, async (req, res) => {
   if (!blockchain || !p2pServer) {
@@ -1367,235 +1446,5 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
-// ============================================
-// DOCUMENT GROUPS API ROUTES
-// ============================================
-
-// Create document group
-// Get all document groups
-app.get('/api/document-groups', authenticate, async (req, res) => {
-  if (!blockchain) {
-    return res.status(503).json({ success: false, error: 'Blockchain not initialized yet' });
-  }
-
-  try {
-    const groups = [];
-    const groupMap = new Map();
-
-    // ===== CRITICAL: Check BOTH mined blocks AND pending transactions =====
-    
-    // 1. Get groups from MINED BLOCKS
-    blockchain.chain.forEach(block => {
-      block.transactions.forEach(tx => {
-        if (tx.type === 'document_group' && tx.data) {
-          groupMap.set(tx.data.groupId, {
-            ...tx.data,
-            blockIndex: block.index,
-            status: 'confirmed',
-            documents: []
-          });
-        }
-      });
-    });
-
-    // 2. Get groups from PENDING TRANSACTIONS (not yet mined)
-    blockchain.pendingTransactions.forEach(tx => {
-      if (tx.type === 'document_group' && tx.data) {
-        // Don't overwrite if already in blockchain
-        if (!groupMap.has(tx.data.groupId)) {
-          groupMap.set(tx.data.groupId, {
-            ...tx.data,
-            blockIndex: 'pending',
-            status: 'pending',
-            documents: []
-          });
-        }
-      }
-    });
-
-    console.log(`📁 Found ${groupMap.size} groups (${blockchain.pendingTransactions.filter(t => t.type === 'document_group').length} pending)`);
-
-    // 3. Count documents in each group (check both mined and pending)
-    blockchain.chain.forEach(block => {
-      block.transactions.forEach(tx => {
-        if (tx.type === 'document' && tx.data && tx.data.groupId) {
-          const group = groupMap.get(tx.data.groupId);
-          if (group) {
-            group.documents.push(tx.data);
-          }
-        }
-      });
-    });
-
-    // Also count pending documents
-    blockchain.pendingTransactions.forEach(tx => {
-      if (tx.type === 'document' && tx.data && tx.data.groupId) {
-        const group = groupMap.get(tx.data.groupId);
-        if (group) {
-          group.documents.push(tx.data);
-        }
-      }
-    });
-
-    groupMap.forEach(group => {
-      groups.push({
-        ...group,
-        documentCount: group.documents.length
-      });
-    });
-
-    res.json({
-      success: true,
-      groups: groups.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
-      count: groups.length,
-      pending: groups.filter(g => g.status === 'pending').length
-    });
-
-  } catch (error) {
-    console.error('Get groups error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Get all document groups
-app.get('/api/document-groups', authenticate, async (req, res) => {
-  if (!blockchain) {
-    return res.status(503).json({ success: false, error: 'Blockchain not initialized yet' });
-  }
-
-  try {
-    const groups = [];
-    const groupMap = new Map();
-
-    // Get groups from blockchain
-    blockchain.chain.forEach(block => {
-      block.transactions.forEach(tx => {
-        if (tx.type === 'document_group' && tx.data) {
-          groupMap.set(tx.data.groupId, {
-            ...tx.data,
-            blockIndex: block.index,
-            documents: []
-          });
-        }
-      });
-    });
-
-    // Count documents in each group
-    blockchain.chain.forEach(block => {
-      block.transactions.forEach(tx => {
-        if (tx.type === 'document' && tx.data && tx.data.groupId) {
-          const group = groupMap.get(tx.data.groupId);
-          if (group) {
-            group.documents.push(tx.data);
-          }
-        }
-      });
-    });
-
-    groupMap.forEach(group => {
-      groups.push({
-        ...group,
-        documentCount: group.documents.length
-      });
-    });
-
-    res.json({
-      success: true,
-      groups: groups.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
-      count: groups.length
-    });
-
-  } catch (error) {
-    console.error('Get groups error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Get specific group with documents
-app.get('/api/document-groups/:groupId', authenticate, async (req, res) => {
-  if (!blockchain) {
-    return res.status(503).json({ success: false, error: 'Blockchain not initialized yet' });
-  }
-
-  try {
-    const { groupId } = req.params;
-    let group = null;
-
-    // ===== Check MINED blocks first =====
-    for (const block of blockchain.chain) {
-      for (const tx of block.transactions) {
-        if (tx.type === 'document_group' && tx.data && tx.data.groupId === groupId) {
-          group = { 
-            ...tx.data, 
-            blockIndex: block.index, 
-            status: 'confirmed',
-            documents: [] 
-          };
-          break;
-        }
-      }
-      if (group) break;
-    }
-
-    // ===== If not found, check PENDING transactions =====
-    if (!group) {
-      for (const tx of blockchain.pendingTransactions) {
-        if (tx.type === 'document_group' && tx.data && tx.data.groupId === groupId) {
-          group = { 
-            ...tx.data, 
-            blockIndex: 'pending', 
-            status: 'pending',
-            documents: [] 
-          };
-          break;
-        }
-      }
-    }
-
-    if (!group) {
-      return res.status(404).json({ success: false, error: 'Group not found' });
-    }
-
-    console.log(`📁 Loading group: ${group.groupName} (${group.status})`);
-
-    // Get documents in this group (from both mined and pending)
-    blockchain.chain.forEach(block => {
-      block.transactions.forEach(tx => {
-        if (tx.type === 'document' && tx.data && tx.data.groupId === groupId) {
-          group.documents.push({
-            ...tx.data,
-            blockIndex: block.index,
-            timestamp: tx.timestamp,
-            status: 'confirmed'
-          });
-        }
-      });
-    });
-
-    // Also check pending documents
-    blockchain.pendingTransactions.forEach(tx => {
-      if (tx.type === 'document' && tx.data && tx.data.groupId === groupId) {
-        group.documents.push({
-          ...tx.data,
-          blockIndex: 'pending',
-          timestamp: tx.timestamp,
-          status: 'pending'
-        });
-      }
-    });
-
-    // Sort by upload date
-    group.documents.sort((a, b) => new Date(a.uploadedAt) - new Date(b.uploadedAt));
-
-    res.json({
-      success: true,
-      group
-    });
-
-  } catch (error) {
-    console.error('Get group error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
 
 module.exports = { app, blockchain, p2pServer };
