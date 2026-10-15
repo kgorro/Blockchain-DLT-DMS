@@ -1,512 +1,426 @@
 // node/blockchain/Blockchain.js
-const crypto = require('crypto');
+//
+// Ledger state and validation rules. This class never decides *what* to commit
+// (that is the consensus engine's job); it only checks that a block is valid and
+// carries a quorum certificate before appending it.
+//
+// Guarantees enforced here:
+//   - fixed authority set from genesis.json (no self-declared authorities)
+//   - Ed25519 signatures on transactions, proposals and commit votes
+//   - blocks need >= quorum commit signatures (quorum = n - f, f = floor((n-1)/3))
+//   - append-only: no longest-chain replacement, no deleting stored blocks
+//   - the stored chain is fully re-verified on startup, so tampering with the
+//     local database is detected
+const EventEmitter = require('events');
 const Block = require('./Block');
-const BlockModel = require('../models/BlockModel');
+const { checkTransactionShape } = require('./Transaction');
+const { sign, verify, merkleProof } = require('../crypto/util');
 
-class Blockchain {
-  constructor(nodeId, isAuthority = false) {
+const MAX_CLOCK_DRIFT_MS = 60 * 1000;
+const MAX_ROUND = 1e6;
+
+/** Indexes derived from committed blocks. */
+class ChainState {
+  constructor() {
+    this.txIds = new Set();
+    this.documents = new Map(); // docId -> { blockIndex, position, tx }
+    this.erasures = new Map();  // docId -> { blockIndex, position, tx }
+    this.children = new Map();  // parent docId -> [child docId]
+  }
+
+  /** Overlay used while validating a block or building a proposal. */
+  overlay() {
+    const base = this;
+    const added = { txIds: new Set(), docs: new Map(), erased: new Set() };
+    return {
+      hasTx: id => base.txIds.has(id) || added.txIds.has(id),
+      hasDoc: id => base.documents.has(id) || added.docs.has(id),
+      isErased: id => base.erasures.has(id) || added.erased.has(id),
+      add(tx) {
+        added.txIds.add(tx.id);
+        if (tx.type === 'document') added.docs.set(tx.data.docId, tx);
+        if (tx.type === 'erasure') added.erased.add(tx.data.targetDocId);
+      }
+    };
+  }
+
+  apply(block) {
+    block.transactions.forEach((tx, position) => {
+      this.txIds.add(tx.id);
+      if (tx.type === 'document') {
+        this.documents.set(tx.data.docId, { blockIndex: block.index, position, tx });
+        if (tx.data.linkedToDocument) {
+          const list = this.children.get(tx.data.linkedToDocument) || [];
+          list.push(tx.data.docId);
+          this.children.set(tx.data.linkedToDocument, list);
+        }
+      } else if (tx.type === 'erasure') {
+        this.erasures.set(tx.data.targetDocId, { blockIndex: block.index, position, tx });
+      }
+    });
+  }
+}
+
+class Blockchain extends EventEmitter {
+  /**
+   * @param {object} opts
+   * @param {string} opts.nodeId
+   * @param {object} opts.genesis   normalized genesis (network/config.js)
+   * @param {string} opts.genesisHash
+   * @param {string} opts.privateKey this node's Ed25519 private key (PEM)
+   * @param {object} opts.store     persistence (storage/MongoStore or MemoryStore)
+   */
+  constructor({ nodeId, genesis, genesisHash, privateKey, store }) {
+    super();
     this.nodeId = nodeId;
-    this.isAuthority = isAuthority;
+    this.genesis = genesis;
+    this.genesisHash = genesisHash;
+    this.chainId = genesis.chainId;
+    this.privateKey = privateKey;
+    this.store = store;
+
+    this.members = new Map(genesis.members.map(m => [m.nodeId, m]));
+    this.authorityList = genesis.authorities; // sorted, deterministic
+    this.authorities = new Set(this.authorityList);
+    this.quorum = genesis.consensus.quorum;
+    this.faultTolerance = genesis.faultTolerance;
+    this.isAuthority = this.authorities.has(nodeId);
+
     this.chain = [];
-    this.pendingTransactions = [];
-    this.difficulty = 2;
-    this.authorities = new Set();
-    this.blockVotes = new Map();
-    this.authorityList = []; // Ordered list for round-robin
+    this.state = new ChainState();
+    this.pending = new Map(); // id -> tx (insertion ordered)
+    this.pendingDocs = new Set();
+    this.pendingErasures = new Set();
   }
 
-  /**
-   * Initialize blockchain from database
-   */
-  async initialize() {
-    try {
-      const blocks = await BlockModel.find().sort({ index: 1 });
-      
-      if (blocks.length === 0) {
-        console.log('No blockchain found, creating genesis block...');
-        await this.createGenesisBlock();
-      } else {
-        this.chain = blocks.map(b => Block.fromDatabase(b));
-        console.log(`✅ Loaded ${this.chain.length} blocks from database`);
-      }
+  // ---------------------------------------------------------------------------
+  // Membership helpers
+  // ---------------------------------------------------------------------------
 
-      return true;
-    } catch (error) {
-      console.error('Error initializing blockchain:', error);
-      throw error;
-    }
+  publicKeyOf(nodeId) {
+    const m = this.members.get(nodeId);
+    return m ? m.publicKey : null;
   }
 
-  /**
-   * Create genesis block
-   */
-  async createGenesisBlock() {
-    const genesisBlock = new Block(
-      0,
-      [],
-      '0',
-      {
-        type: 'genesis',
-        message: 'Distributed Blockchain Network - Genesis Block',
-        timestamp: new Date().toISOString(),
-        network: 'document-blockchain-dlt'
-      }
-    );
-
-    genesisBlock.hash = genesisBlock.calculateHash();
-    genesisBlock.authority = 'genesis';
-    
-    this.chain.push(genesisBlock);
-    
-    // Save to database
-    await this.saveBlockToDatabase(genesisBlock);
-    
-    console.log('✅ Genesis block created');
-    return genesisBlock;
+  authorityKeyOf(nodeId) {
+    return this.authorities.has(nodeId) ? this.publicKeyOf(nodeId) : null;
   }
 
-  /**
-   * Get latest block
-   */
-  getLatestBlock() {
-    return this.chain[this.chain.length - 1];
-  }
-
-  /**
-     * Get the current mining leader (round-robin)
-     */
-  getMiningLeader() {
-    if (this.authorityList.length === 0) {
-      return null;
-    }
-    
-    const latestBlock = this.getLatestBlock();
-    const roundIndex = latestBlock.index % this.authorityList.length;
-    return this.authorityList[roundIndex];
-  }
-
-  /**
-   * Check if this node should mine the next block
-   */
-  isMyTurnToMine() {
-    if (!this.isAuthority) return false;
-    
-    const leader = this.getMiningLeader();
-    console.log(`🎯 Mining leader for block #${this.chain.length}: ${leader}`);
-    return leader === this.nodeId;
-  }
-
-  /**
-   * Add authority and update list
-   */
-  addAuthority(nodeId) {
-    this.authorities.add(nodeId);
-    this.authorityList = Array.from(this.authorities).sort(); // Deterministic order
-    console.log(`✅ Authority added: ${nodeId}`);
-    console.log(`📋 Authority list: ${this.authorityList.join(', ')}`);
-  }
-
-  /**
-   * Remove authority node
-   */
-  removeAuthority(nodeId) {
-    this.authorities.delete(nodeId);
-    console.log(`⚠️ Authority removed: ${nodeId}`);
-  }
-
-  /**
-   * Check if node is authority
-   */
   isAuthorityNode(nodeId) {
     return this.authorities.has(nodeId);
   }
 
-  /**
-   * Create new block (only for authority nodes)
-   */
-  async createBlock(transactions, metadata = {}) {
-    if (!this.isAuthority) {
-      throw new Error('Only authority nodes can create blocks');
-    }
-
-    const latestBlock = this.getLatestBlock();
-    const newBlock = new Block(
-      latestBlock.index + 1,
-      transactions,
-      latestBlock.hash,
-      metadata
-    );
-
-    // Sign block with authority identity
-    newBlock.authority = this.nodeId;
-    newBlock.hash = newBlock.calculateHash();
-    
-    // Add authority signature
-    newBlock.signature = this.signBlock(newBlock);
-
-    console.log(`📦 Block #${newBlock.index} created by ${this.nodeId}`);
-    
-    return newBlock;
+  /** Round-robin proposer for (height, round). */
+  leaderFor(height, round = 0) {
+    return this.authorityList[(height + round) % this.authorityList.length];
   }
 
-  /**
-   * Sign block with authority private key
-   */
-  signBlock(block) {
-    const blockData = `${block.index}${block.previousHash}${block.timestamp}${JSON.stringify(block.transactions)}`;
-    return crypto
-      .createHash('sha256')
-      .update(blockData + this.nodeId)
-      .digest('hex');
+  get height() {
+    return this.chain.length;
   }
 
-  /**
-   * Verify block signature
-   */
-  verifyBlockSignature(block) {
-    const blockData = `${block.index}${block.previousHash}${block.timestamp}${JSON.stringify(block.transactions)}`;
-    const expectedSignature = crypto
-      .createHash('sha256')
-      .update(blockData + block.authority)
-      .digest('hex');
-    
-    return block.signature === expectedSignature;
+  getLatestBlock() {
+    return this.chain[this.chain.length - 1];
   }
 
-  /**
-   * Validate block before adding to chain
-   */
-  async validateBlock(block) {
-    const latestBlock = this.getLatestBlock();
+  // ---------------------------------------------------------------------------
+  // Startup
+  // ---------------------------------------------------------------------------
 
-    // Check block index
-    if (block.index !== latestBlock.index + 1) {
-      return { valid: false, reason: 'Invalid block index' };
-    }
-
-    // Check previous hash
-    if (block.previousHash !== latestBlock.hash) {
-      return { valid: false, reason: 'Invalid previous hash' };
-    }
-
-    // Verify hash calculation
-    const calculatedHash = block.calculateHash();
-    if (block.hash !== calculatedHash) {
-      return { valid: false, reason: 'Invalid block hash' };
-    }
-
-    // Verify authority signature
-    if (!this.verifyBlockSignature(block)) {
-      return { valid: false, reason: 'Invalid authority signature' };
-    }
-
-    // Check if block creator is an authority
-    if (!this.isAuthorityNode(block.authority)) {
-      return { valid: false, reason: 'Block creator is not an authority' };
-    }
-
-    // Validate transactions
-    for (const tx of block.transactions) {
-      if (!this.validateTransaction(tx)) {
-        return { valid: false, reason: 'Invalid transaction in block' };
-      }
-    }
-
-    return { valid: true };
+  buildGenesisBlock() {
+    // Deterministic on every node: binds the chain to the exact network definition.
+    return new Block({
+      chainId: this.chainId,
+      index: 0,
+      timestamp: this.genesis.createdAt,
+      previousHash: this.genesisHash,
+      transactions: [],
+      proposer: null,
+      round: 0
+    });
   }
 
-  /**
-   * Vote on a block (PoA consensus)
-   */
-  voteOnBlock(blockHash, nodeId, approve) {
-    if (!this.blockVotes.has(blockHash)) {
-      this.blockVotes.set(blockHash, { yes: new Set(), no: new Set() });
+  async initialize() {
+    const stored = await this.store.loadBlocks();
+    if (stored.length === 0) {
+      const genesis = this.buildGenesisBlock();
+      await this.store.appendBlock(genesis.toJSON());
+      this.chain = [genesis];
+      this.state = new ChainState();
+      return { created: true, blocks: 1 };
     }
 
-    const votes = this.blockVotes.get(blockHash);
-    
-    if (approve) {
-      votes.yes.add(nodeId);
-      votes.no.delete(nodeId);
-    } else {
-      votes.no.add(nodeId);
-      votes.yes.delete(nodeId);
+    const blocks = stored.map(b => Block.fromJSON(b));
+    const result = this.verifyBlocks(blocks);
+    if (!result.valid) {
+      const err = new Error(`Stored ledger failed verification at block ${result.blockIndex}: ${result.reason}`);
+      err.code = 'LEDGER_TAMPERED';
+      throw err;
     }
-
-    return this.getVoteStatus(blockHash);
+    this.chain = blocks;
+    this.state = result.state;
+    return { created: false, blocks: blocks.length };
   }
 
-  /**
-   * Get vote status for a block
-   */
-  getVoteStatus(blockHash) {
-    const votes = this.blockVotes.get(blockHash);
-    if (!votes) return { yes: 0, no: 0, total: 0 };
+  // ---------------------------------------------------------------------------
+  // Transactions
+  // ---------------------------------------------------------------------------
 
-    const totalAuthorities = this.authorities.size;
-    const yesVotes = votes.yes.size;
-    const noVotes = votes.no.size;
-    const requiredVotes = Math.ceil(totalAuthorities / 2); // Majority
+  /** Validate a transaction against stateless rules plus the given state view. */
+  checkTransaction(tx, view) {
+    const shapeError = checkTransactionShape(tx, id => this.authorityKeyOf(id));
+    if (shapeError) return shapeError;
+    if (view.hasTx(tx.id)) return 'Transaction already committed';
 
+    if (tx.type === 'document') {
+      if (view.hasDoc(tx.data.docId)) return 'Document is already registered';
+      const parent = tx.data.linkedToDocument;
+      if (parent && !view.hasDoc(parent)) return 'Linked parent document does not exist on the ledger';
+    }
+    if (tx.type === 'erasure') {
+      if (!view.hasDoc(tx.data.targetDocId)) return 'Erasure target does not exist on the ledger';
+      if (view.isErased(tx.data.targetDocId)) return 'Document metadata already erased';
+    }
+    return null;
+  }
+
+  /** View of committed state plus the pending pool (used to admit new transactions). */
+  pendingView() {
+    const state = this.state;
     return {
-      yes: yesVotes,
-      no: noVotes,
-      total: totalAuthorities,
-      required: requiredVotes,
-      approved: yesVotes >= requiredVotes,
-      rejected: noVotes > (totalAuthorities - requiredVotes)
+      hasTx: id => state.txIds.has(id) || this.pending.has(id),
+      hasDoc: id => state.documents.has(id) || this.pendingDocs.has(id),
+      isErased: id => state.erasures.has(id) || this.pendingErasures.has(id),
+      add() {}
     };
   }
 
-  /**
-   * Add block to chain after consensus
-   */
-  async addBlock(block) {
-    const validation = await this.validateBlock(block);
-    
-    if (!validation.valid) {
-      console.error(`❌ Block validation failed: ${validation.reason}`);
-      return { success: false, reason: validation.reason };
-    }
-
-    // Check consensus votes
-    const voteStatus = this.getVoteStatus(block.hash);
-    
-    if (!voteStatus.approved) {
-      console.log(`⏳ Block #${block.index} waiting for consensus (${voteStatus.yes}/${voteStatus.required})`);
-      return { success: false, reason: 'Awaiting consensus', voteStatus };
-    }
-
-    // Add block to chain
-    this.chain.push(block);
-    
-    // Save to database
-    await this.saveBlockToDatabase(block);
-    
-    // Clear votes for this block
-    this.blockVotes.delete(block.hash);
-    
-    console.log(`✅ Block #${block.index} added to chain (consensus reached)`);
-    
-    return { success: true, block };
+  /** Add to the local pending pool (from API or peers). Returns { added, reason }. */
+  addPendingTransaction(tx) {
+    if (tx && this.pending.has(tx.id)) return { added: false, reason: 'Already pending' };
+    const error = this.checkTransaction(tx, this.pendingView());
+    if (error) return { added: false, reason: error };
+    this.pending.set(tx.id, tx);
+    if (tx.type === 'document') this.pendingDocs.add(tx.data.docId);
+    if (tx.type === 'erasure') this.pendingErasures.add(tx.data.targetDocId);
+    return { added: true };
   }
 
-  /**
-   * Save block to database
-   */
-  async saveBlockToDatabase(block) {
-    try {
-      const blockData = {
-        index: block.index,
-        timestamp: block.timestamp,
-        transactions: block.transactions,
-        previousHash: block.previousHash,
-        hash: block.hash,
-        nonce: block.nonce,
-        authority: block.authority,
-        signature: block.signature,
-        metadata: block.metadata
-      };
-
-      await BlockModel.create(blockData);
-    } catch (error) {
-      console.error('Error saving block to database:', error);
-      throw error;
-    }
+  removePending(id) {
+    const tx = this.pending.get(id);
+    if (!tx) return;
+    this.pending.delete(id);
+    if (tx.type === 'document') this.pendingDocs.delete(tx.data.docId);
+    if (tx.type === 'erasure') this.pendingErasures.delete(tx.data.targetDocId);
   }
 
-  /**
-   * Validate transaction
-   */
-  validateTransaction(transaction) {
-    // Basic validation
-    if (!transaction.type || !transaction.data) {
-      return false;
-    }
-
-    // Validate document hash if it's a document transaction
-    if (transaction.type === 'document') {
-      if (!transaction.data.fileHash || transaction.data.fileHash.length !== 64) {
-        return false;
+  /** Pick valid pending transactions for the next block (drops ones made invalid by commits). */
+  selectTransactionsForBlock(max = this.genesis.consensus.maxTransactionsPerBlock) {
+    const view = this.state.overlay();
+    const selected = [];
+    for (const [id, tx] of this.pending) {
+      if (selected.length >= max) break;
+      const error = this.checkTransaction(tx, view);
+      if (error) {
+        this.removePending(id);
+        continue;
       }
+      view.add(tx);
+      selected.push(tx);
     }
-
-    return true;
+    return selected;
   }
 
-  /**
-   * Add transaction to pending pool
-   */
-  addTransaction(transaction) {
-    if (!this.validateTransaction(transaction)) {
-      throw new Error('Invalid transaction');
-    }
-
-    this.pendingTransactions.push(transaction);
-    console.log(`📝 Transaction added to pool (${this.pendingTransactions.length} pending)`);
-    
-    return transaction;
+  get pendingTransactions() {
+    return Array.from(this.pending.values());
   }
 
-  /**
-   * Mine pending transactions into a block (for authority nodes)
-   */
-  async minePendingTransactions() {
-    if (!this.isAuthority) {
-      throw new Error('Only authority nodes can mine blocks');
-    }
+  // ---------------------------------------------------------------------------
+  // Blocks
+  // ---------------------------------------------------------------------------
 
-    if (this.pendingTransactions.length === 0) {
-      return null;
-    }
-
-    const transactions = [...this.pendingTransactions];
-    this.pendingTransactions = [];
-
-    const block = await this.createBlock(transactions, {
-      minedBy: this.nodeId,
-      transactionCount: transactions.length
+  createProposal(transactions, round) {
+    if (!this.isAuthority) throw new Error('Only authority nodes can propose blocks');
+    const prev = this.getLatestBlock();
+    const block = new Block({
+      chainId: this.chainId,
+      index: prev.index + 1,
+      timestamp: Math.max(Date.now(), prev.timestamp),
+      previousHash: prev.hash,
+      transactions,
+      proposer: this.nodeId,
+      round
     });
-
+    block.signAsProposer(this.privateKey);
     return block;
   }
 
   /**
-   * Verify entire chain integrity
+   * Structural validation of a proposal or committed block against a given tip.
+   * Does not check the commit certificate.
    */
-  async verifyChain() {
-    for (let i = 1; i < this.chain.length; i++) {
-      const currentBlock = this.chain[i];
-      const previousBlock = this.chain[i - 1];
+  validateBlockAgainst(block, prev, state, { checkDrift = true } = {}) {
+    if (block.chainId !== this.chainId) return 'Wrong chain id';
+    if (block.index !== prev.index + 1) return 'Invalid block index';
+    if (block.previousHash !== prev.hash) return 'Invalid previous hash';
+    if (typeof block.timestamp !== 'number' || block.timestamp < prev.timestamp) return 'Invalid timestamp';
+    if (checkDrift && block.timestamp > Date.now() + MAX_CLOCK_DRIFT_MS) return 'Timestamp too far in the future';
+    if (!Number.isInteger(block.round) || block.round < 0 || block.round > MAX_ROUND) return 'Invalid round';
+    if (block.txRoot !== Block.computeTxRoot(block.transactions)) return 'Transaction root mismatch';
+    if (block.hash !== block.calculateHash()) return 'Invalid block hash';
 
-      // Verify hash
-      if (currentBlock.hash !== currentBlock.calculateHash()) {
-        return {
-          valid: false,
-          reason: `Invalid hash at block ${i}`,
-          blockIndex: i
-        };
-      }
+    if (!this.authorities.has(block.proposer)) return 'Proposer is not an authority';
+    if (block.proposer !== this.leaderFor(block.index, block.round)) return 'Proposer is not the leader for this height and round';
+    if (!block.verifyProposerSignature(this.publicKeyOf(block.proposer))) return 'Invalid proposer signature';
 
-      // Verify link
-      if (currentBlock.previousHash !== previousBlock.hash) {
-        return {
-          valid: false,
-          reason: `Broken chain at block ${i}`,
-          blockIndex: i
-        };
-      }
+    if (block.transactions.length > this.genesis.consensus.maxTransactionsPerBlock) return 'Too many transactions';
+    const view = state.overlay();
+    for (const tx of block.transactions) {
+      const error = this.checkTransaction(tx, view);
+      if (error) return `Invalid transaction ${String(tx && tx.id).slice(0, 12)}: ${error}`;
+      view.add(tx);
+    }
+    return null;
+  }
 
-      // Verify signature
-      if (!this.verifyBlockSignature(currentBlock)) {
-        return {
-          valid: false,
-          reason: `Invalid signature at block ${i}`,
-          blockIndex: i
-        };
+  validateProposal(block) {
+    return this.validateBlockAgainst(block, this.getLatestBlock(), this.state);
+  }
+
+  verifyCommitSignature(block, commit) {
+    const key = this.authorityKeyOf(commit.nodeId);
+    return !!key && verify(key, Block.commitMessage(this.chainId, block.index, block.hash), commit.signature);
+  }
+
+  /** Checks the commit certificate: >= quorum distinct authorities, all signatures valid. */
+  verifyCertificate(block) {
+    const seen = new Set();
+    for (const c of block.commits) {
+      if (seen.has(c.nodeId)) return 'Duplicate signer in certificate';
+      if (!this.verifyCommitSignature(block, c)) return `Invalid commit signature from ${c.nodeId}`;
+      seen.add(c.nodeId);
+    }
+    if (seen.size < this.quorum) return `Certificate has ${seen.size} signatures, quorum is ${this.quorum}`;
+    return null;
+  }
+
+  signCommit(block) {
+    return sign(this.privateKey, Block.commitMessage(this.chainId, block.index, block.hash));
+  }
+
+  /** Append a finalized block. Rejects anything without a valid certificate. */
+  async appendCommittedBlock(block, { checkDrift = true } = {}) {
+    const structural = this.validateBlockAgainst(block, this.getLatestBlock(), this.state, { checkDrift });
+    if (structural) return { success: false, reason: structural };
+    const cert = this.verifyCertificate(block);
+    if (cert) return { success: false, reason: cert };
+
+    await this.store.appendBlock(block.toJSON());
+    this.chain.push(block);
+    this.state.apply(block);
+    for (const tx of block.transactions) this.removePending(tx.id);
+    // Drop pending transactions that this block made invalid (e.g. same file registered elsewhere)
+    for (const [id, tx] of this.pending) {
+      if (this.state.txIds.has(id)
+        || (tx.type === 'document' && this.state.documents.has(tx.data.docId))
+        || (tx.type === 'erasure' && this.state.erasures.has(tx.data.targetDocId))) {
+        this.removePending(id);
       }
     }
+    this.emit('blockCommitted', block);
+    return { success: true, block };
+  }
 
+  /** Re-verify a sequence of blocks from genesis. Returns { valid, state } or { valid:false, reason, blockIndex }. */
+  verifyBlocks(blocks) {
+    if (blocks.length === 0) return { valid: false, reason: 'Empty chain', blockIndex: 0 };
+    const genesis = this.buildGenesisBlock();
+    const g = blocks[0];
+    if (g.hash !== genesis.hash || g.previousHash !== this.genesisHash || g.transactions.length !== 0) {
+      return { valid: false, reason: 'Genesis block does not match genesis.json', blockIndex: 0 };
+    }
+    const state = new ChainState();
+    for (let i = 1; i < blocks.length; i++) {
+      const block = blocks[i];
+      const error = this.validateBlockAgainst(block, blocks[i - 1], state, { checkDrift: false })
+        || this.verifyCertificate(block);
+      if (error) return { valid: false, reason: error, blockIndex: i };
+      state.apply(block);
+    }
+    return { valid: true, state, blockCount: blocks.length };
+  }
+
+  /** Full verification of the in-memory chain (used by /api/blockchain/verify). */
+  async verifyChain() {
+    const result = this.verifyBlocks(this.chain);
+    if (!result.valid) return { valid: false, reason: result.reason, blockIndex: result.blockIndex };
     return { valid: true, blockCount: this.chain.length };
   }
 
-  /**
-   * Replace chain with longer valid chain (consensus)
-   */
-  async replaceChain(newChain) {
-    if (newChain.length <= this.chain.length) {
-      console.log('⚠️ Received chain is not longer than current chain');
-      return false;
-    }
+  // ---------------------------------------------------------------------------
+  // Document queries (on-chain data only)
+  // ---------------------------------------------------------------------------
 
-    // Validate new chain
-    const validation = await this.validateChain(newChain);
-    if (!validation.valid) {
-      console.log(`❌ Received chain is invalid: ${validation.reason}`);
-      return false;
-    }
-
-    console.log('🔄 Replacing chain with longer valid chain');
-    this.chain = newChain;
-
-    // Save entire chain to database
-    await this.syncChainToDatabase();
-
-    return true;
+  getDocumentEntry(docId) {
+    return this.state.documents.get(docId) || null;
   }
 
-  /**
-   * Validate a complete chain
-   */
-  async validateChain(chain) {
-    // Check genesis block
-    const genesisBlock = chain[0];
-    if (genesisBlock.index !== 0 || genesisBlock.previousHash !== '0') {
-      return { valid: false, reason: 'Invalid genesis block' };
-    }
-
-    // Validate all blocks
-    for (let i = 1; i < chain.length; i++) {
-      const block = chain[i];
-      const previousBlock = chain[i - 1];
-
-      if (block.hash !== block.calculateHash()) {
-        return { valid: false, reason: `Invalid hash at block ${i}` };
-      }
-
-      if (block.previousHash !== previousBlock.hash) {
-        return { valid: false, reason: `Broken chain at block ${i}` };
-      }
-
-      if (block.index !== i) {
-        return { valid: false, reason: `Invalid index at block ${i}` };
-      }
-    }
-
-    return { valid: true };
+  getErasure(docId) {
+    return this.state.erasures.get(docId) || null;
   }
 
-  /**
-   * Sync chain to database
-   */
-  async syncChainToDatabase() {
-    try {
-      // Clear existing blocks
-      await BlockModel.deleteMany({});
-
-      // Save all blocks
-      for (const block of this.chain) {
-        await this.saveBlockToDatabase(block);
-      }
-
-      console.log('✅ Chain synced to database');
-    } catch (error) {
-      console.error('Error syncing chain to database:', error);
-      throw error;
-    }
+  getChildren(docId) {
+    return this.state.children.get(docId) || [];
   }
 
-  /**
-   * Get blockchain statistics
-   */
-  getStatistics() {
+  /** Merkle inclusion proof that a transaction is in a committed block, plus the block certificate. */
+  getInclusionProof(docId) {
+    const entry = this.getDocumentEntry(docId);
+    if (!entry) return null;
+    const block = this.chain[entry.blockIndex];
+    const leaves = block.transactions.map(tx => tx.id);
     return {
-      blockCount: this.chain.length,
-      latestBlock: this.getLatestBlock(),
-      pendingTransactions: this.pendingTransactions.length,
-      authorities: Array.from(this.authorities),
-      isAuthority: this.isAuthority,
-      nodeId: this.nodeId
+      transaction: entry.tx,
+      txId: entry.tx.id,
+      merkleProof: merkleProof(leaves, entry.position),
+      blockHeader: { ...block.header(), hash: block.hash },
+      proposerSignature: block.signature,
+      commits: block.commits,
+      quorum: this.quorum
     };
   }
 
-  /**
-   * Export blockchain
-   */
+  // ---------------------------------------------------------------------------
+  // Reporting
+  // ---------------------------------------------------------------------------
+
+  getMiningLeader() {
+    return this.leaderFor(this.height, 0);
+  }
+
+  getStatistics() {
+    return {
+      blockCount: this.chain.length,
+      latestBlock: this.getLatestBlock() ? this.getLatestBlock().toJSON() : null,
+      pendingTransactions: this.pending.size,
+      documents: this.state.documents.size,
+      erasures: this.state.erasures.size,
+      authorities: this.authorityList,
+      quorum: this.quorum,
+      faultTolerance: this.faultTolerance,
+      isAuthority: this.isAuthority,
+      nodeId: this.nodeId,
+      chainId: this.chainId
+    };
+  }
+
   export() {
     return {
+      chainId: this.chainId,
+      genesisHash: this.genesisHash,
       chain: this.chain.map(block => block.toJSON()),
-      authorities: Array.from(this.authorities),
+      authorities: this.authorityList,
+      quorum: this.quorum,
       exportedAt: new Date().toISOString(),
       nodeId: this.nodeId
     };
@@ -514,3 +428,4 @@ class Blockchain {
 }
 
 module.exports = Blockchain;
+module.exports.ChainState = ChainState;

@@ -1,0 +1,85 @@
+{
+  "generatedAt": "2026-10-15T01:25:35.258Z",
+  "machine": {
+    "cpus": 2,
+    "cpuModel": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "memoryGb": 8,
+    "node": "v22.22.0"
+  },
+  "documentsPerRun": 300,
+  "results": [
+    {
+      "authorities": 4,
+      "offline": 0,
+      "quorum": 3,
+      "documents": 300,
+      "blocks": 2,
+      "seconds": 1.47,
+      "throughputTxPerSec": 204.1,
+      "latencyP50Ms": 1094,
+      "latencyP95Ms": 1395,
+      "ledgerBytesPerDocument": 708
+    },
+    {
+      "authorities": 4,
+      "offline": 1,
+      "quorum": 3,
+      "documents": 300,
+      "blocks": 2,
+      "seconds": 0.88,
+      "throughputTxPerSec": 342.5,
+      "latencyP50Ms": 666,
+      "latencyP95Ms": 815,
+      "ledgerBytesPerDocument": 708
+    },
+    {
+      "authorities": 7,
+      "offline": 0,
+      "quorum": 5,
+      "documents": 300,
+      "blocks": 2,
+      "seconds": 4.15,
+      "throughputTxPerSec": 72.3,
+      "latencyP50Ms": 3176,
+      "latencyP95Ms": 3932,
+      "ledgerBytesPerDocument": 709
+    },
+    {
+      "authorities": 7,
+      "offline": 2,
+      "quorum": 5,
+      "documents": 300,
+      "blocks": 2,
+      "seconds": 1.91,
+      "throughputTxPerSec": 157.5,
+      "latencyP50Ms": 1589,
+      "latencyP95Ms": 1847,
+      "ledgerBytesPerDocument": 709
+    },
+    {
+      "authorities": 10,
+      "offline": 0,
+      "quorum": 7,
+      "documents": 300,
+      "blocks": 2,
+      "seconds": 7.94,
+      "throughputTxPerSec": 37.8,
+      "latencyP50Ms": 6395,
+      "latencyP95Ms": 7581,
+      "ledgerBytesPerDocument": 711
+    },
+    {
+      "authorities": 10,
+      "offline": 3,
+      "quorum": 7,
+      "documents": 300,
+      "blocks": 2,
+      "seconds": 3.98,
+      "throughputTxPerSec": 75.3,
+      "latencyP50Ms": 3189,
+      "latencyP95Ms": 3783,
+      "ledgerBytesPerDocument": 711
+    }
+  ],
+  "legacyOnChainBytesPerDocument": 11988
+}

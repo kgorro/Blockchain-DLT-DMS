@@ -5,6 +5,22 @@ const { authenticate, isAdmin, generateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Simple in-memory login throttle: 10 failed attempts per IP per 15 minutes.
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_FAILURES = 10;
+const loginFailures = new Map();
+function tooManyFailures(ip) {
+  const entry = loginFailures.get(ip);
+  if (!entry || Date.now() > entry.resetAt) return false;
+  return entry.count >= LOGIN_MAX_FAILURES;
+}
+function recordFailure(ip) {
+  const now = Date.now();
+  const entry = loginFailures.get(ip);
+  if (!entry || now > entry.resetAt) loginFailures.set(ip, { count: 1, resetAt: now + LOGIN_WINDOW_MS });
+  else entry.count++;
+}
+
 // Register new admin (first user only)
 router.post('/register', async (req, res) => {
   try {
@@ -67,7 +83,12 @@ router.post('/register', async (req, res) => {
 // Admin Login ONLY
 router.post('/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const ip = req.ip;
+    if (tooManyFailures(ip)) {
+      return res.status(429).json({ success: false, error: 'Too many failed login attempts. Try again later.' });
+    }
+    const username = typeof req.body.username === 'string' ? req.body.username : '';
+    const password = typeof req.body.password === 'string' ? req.body.password : '';
 
     if (!username || !password) {
       return res.status(400).json({ 
@@ -81,6 +102,7 @@ router.post('/login', async (req, res) => {
     });
 
     if (!user) {
+      recordFailure(ip);
       return res.status(401).json({ 
         success: false, 
         error: 'Invalid credentials' 
@@ -105,6 +127,7 @@ router.post('/login', async (req, res) => {
     const isMatch = await user.comparePassword(password);
 
     if (!isMatch) {
+      recordFailure(ip);
       return res.status(401).json({ 
         success: false, 
         error: 'Invalid credentials' 

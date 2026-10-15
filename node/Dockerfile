@@ -1,4 +1,4 @@
-FROM node:18-bullseye
+FROM node:20-bullseye
 
 WORKDIR /app
 
@@ -27,12 +27,12 @@ RUN sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /e
 COPY package*.json ./
 
 # Install Node dependencies
-RUN npm install --legacy-peer-deps
+RUN npm ci --omit=dev --legacy-peer-deps
 
 COPY . .
 
-RUN mkdir -p uploads && chmod 777 uploads
+RUN mkdir -p uploads && chmod 700 uploads
 
-EXPOSE 5001 5002 5003 6001 6002 6003
+EXPOSE 5001 5002 5003 5004 6001 6002 6003 6004
 
 CMD ["node", "server.js"]
