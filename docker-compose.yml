@@ -1,152 +1,142 @@
 version: '3.8'
 
+# Four authority nodes: with n = 4 the network tolerates f = 1 faulty or offline
+# authority (quorum = 3). With only 3 authorities it would tolerate none.
+#
+# First run:
+#   ./setup.sh                 # creates ./network (genesis + keys) and .env (JWT_SECRET)
+#   docker compose up --build
+# The "network-init" service repeats the same step and does nothing if ./network exists.
+#
+# Single-host demo note: every container mounts the whole ./network folder, so each
+# can read all private keys. In a real deployment each institution's server holds
+# only genesis.json, its own keys/<node>.json and keys/data.key.
+
+x-node: &node
+  build:
+    context: ./node
+    dockerfile: Dockerfile
+  networks: [blockchain-network]
+  restart: unless-stopped
+  deploy:
+    resources:
+      limits:
+        memory: 2G   # OCR processing
+
+x-mongo: &mongo
+  image: mongo:7.0
+  networks: [blockchain-network]
+  restart: unless-stopped
+
 services:
-  # MongoDB instances
-  mongo1:
-    image: mongo:7.0
-    container_name: blockchain-mongo-1
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo1_data:/data/db
-    networks:
-      - blockchain-network
-    restart: unless-stopped
-
-  mongo2:
-    image: mongo:7.0
-    container_name: blockchain-mongo-2
-    ports:
-      - "27018:27017"
-    volumes:
-      - mongo2_data:/data/db
-    networks:
-      - blockchain-network
-    restart: unless-stopped
-
-  mongo3:
-    image: mongo:7.0
-    container_name: blockchain-mongo-3
-    ports:
-      - "27019:27017"
-    volumes:
-      - mongo3_data:/data/db
-    networks:
-      - blockchain-network
-    restart: unless-stopped
-
-  # Blockchain nodes
-  node1:
-    build: 
+  network-init:
+    build:
       context: ./node
       dockerfile: Dockerfile
+    command: >
+      sh -c "node scripts/generate-network.js --out /network --authorities node-1,node-2,node-3,node-4 --env /env/.env"
+    volumes:
+      - ./network:/network
+      - ./:/env
+    restart: "no"
+
+  mongo1: { <<: *mongo, container_name: blockchain-mongo-1, volumes: [mongo1_data:/data/db] }
+  mongo2: { <<: *mongo, container_name: blockchain-mongo-2, volumes: [mongo2_data:/data/db] }
+  mongo3: { <<: *mongo, container_name: blockchain-mongo-3, volumes: [mongo3_data:/data/db] }
+  mongo4: { <<: *mongo, container_name: blockchain-mongo-4, volumes: [mongo4_data:/data/db] }
+
+  node1:
+    <<: *node
     container_name: blockchain-node-1
     environment:
       - PORT=5001
       - P2P_PORT=6001
       - NODE_ID=node-1
-      - NODE_TYPE=authority
       - MONGODB_URI=mongodb://mongo1:27017/blockchain-node1
       - BOOTSTRAP_PEERS=
-      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+      - NETWORK_DIR=/network
+      - UPLOADS_DIR=/app/uploads
       - NODE_ENV=development
-    ports:
-      - "5001:5001"
-      - "6001:6001"
+      - JWT_SECRET=${JWT_SECRET:-}
+    ports: ["5001:5001", "6001:6001"]
     volumes:
-      - ./node:/app
-      - /app/node_modules  # Prevent host node_modules from overwriting container
+      - ./network:/network:ro
       - ./uploads1:/app/uploads
     depends_on:
-      - mongo1
-    networks:
-      - blockchain-network
-    restart: unless-stopped
-    # Increase memory limit for OCR processing
-    deploy:
-      resources:
-        limits:
-          memory: 2G
+      mongo1: { condition: service_started }
+      network-init: { condition: service_completed_successfully }
 
   node2:
-    build: 
-      context: ./node
-      dockerfile: Dockerfile
+    <<: *node
     container_name: blockchain-node-2
     environment:
       - PORT=5002
       - P2P_PORT=6002
       - NODE_ID=node-2
-      - NODE_TYPE=authority
       - MONGODB_URI=mongodb://mongo2:27017/blockchain-node2
       - BOOTSTRAP_PEERS=ws://node1:6001
-      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+      - NETWORK_DIR=/network
+      - UPLOADS_DIR=/app/uploads
       - NODE_ENV=development
-    ports:
-      - "5002:5002"
-      - "6002:6002"
+      - JWT_SECRET=${JWT_SECRET:-}
+    ports: ["5002:5002", "6002:6002"]
     volumes:
-      - ./node:/app
-      - /app/node_modules
+      - ./network:/network:ro
       - ./uploads2:/app/uploads
     depends_on:
-      - mongo2
-      - node1
-    networks:
-      - blockchain-network
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 2G
+      mongo2: { condition: service_started }
+      network-init: { condition: service_completed_successfully }
 
   node3:
-    build: 
-      context: ./node
-      dockerfile: Dockerfile
+    <<: *node
     container_name: blockchain-node-3
     environment:
       - PORT=5003
       - P2P_PORT=6003
       - NODE_ID=node-3
-      - NODE_TYPE=authority  # Changed back to authority for 3-node consensus
       - MONGODB_URI=mongodb://mongo3:27017/blockchain-node3
       - BOOTSTRAP_PEERS=ws://node1:6001,ws://node2:6002
-      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+      - NETWORK_DIR=/network
+      - UPLOADS_DIR=/app/uploads
       - NODE_ENV=development
-    ports:
-      - "5003:5003"
-      - "6003:6003"
+      - JWT_SECRET=${JWT_SECRET:-}
+    ports: ["5003:5003", "6003:6003"]
     volumes:
-      - ./node:/app
-      - /app/node_modules
+      - ./network:/network:ro
       - ./uploads3:/app/uploads
     depends_on:
-      - mongo3
-      - node1
-      - node2
-    networks:
-      - blockchain-network
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 2G
+      mongo3: { condition: service_started }
+      network-init: { condition: service_completed_successfully }
 
-  # Frontend UI
+  node4:
+    <<: *node
+    container_name: blockchain-node-4
+    environment:
+      - PORT=5004
+      - P2P_PORT=6004
+      - NODE_ID=node-4
+      - MONGODB_URI=mongodb://mongo4:27017/blockchain-node4
+      - BOOTSTRAP_PEERS=ws://node1:6001,ws://node2:6002,ws://node3:6003
+      - NETWORK_DIR=/network
+      - UPLOADS_DIR=/app/uploads
+      - NODE_ENV=development
+      - JWT_SECRET=${JWT_SECRET:-}
+    ports: ["5004:5004", "6004:6004"]
+    volumes:
+      - ./network:/network:ro
+      - ./uploads4:/app/uploads
+    depends_on:
+      mongo4: { condition: service_started }
+      network-init: { condition: service_completed_successfully }
+
   frontend:
-    build: 
+    build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: blockchain-frontend
-    ports:
-      - "80:80"
-    depends_on:
-      - node1
-      - node2
-      - node3
-    networks:
-      - blockchain-network
+    ports: ["80:80"]
+    depends_on: [node1, node2, node3, node4]
+    networks: [blockchain-network]
     restart: unless-stopped
 
 networks:
@@ -157,3 +147,4 @@ volumes:
   mongo1_data:
   mongo2_data:
   mongo3_data:
+  mongo4_data:

@@ -1,8 +1,19 @@
 // node/middleware/auth.js
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+// The JWT secret must come from the environment. There is deliberately no hardcoded
+// fallback: a known default would let anyone mint admin tokens.
+const WEAK_SECRETS = ['your-secret-key-change-in-production', 'your-super-secret-jwt-key-change-this-in-production'];
+let JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || WEAK_SECRETS.includes(JWT_SECRET) || JWT_SECRET.length < 32) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET must be set to a random value of at least 32 characters in production');
+  }
+  JWT_SECRET = crypto.randomBytes(48).toString('base64url');
+  console.warn('⚠️  JWT_SECRET missing or weak: using a random per-process secret (logins will not survive restarts). Set JWT_SECRET in .env.');
+}
 
 // Verify JWT token
 const authenticate = async (req, res, next) => {
@@ -37,6 +48,21 @@ const authenticate = async (req, res, next) => {
   }
 };
 
+// Attach req.user when a valid token is present, but never block the request.
+const optionalAuthenticate = async (req, res, next) => {
+  try {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    if (token) {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      const user = await User.findById(decoded.userId);
+      if (user && user.isActive) req.user = user;
+    }
+  } catch (e) {
+    // invalid token: treat as anonymous
+  }
+  next();
+};
+
 // Check if user is admin
 const isAdmin = (req, res, next) => {
   if (req.user.role !== 'admin') {
@@ -61,13 +87,13 @@ const isCitizen = (req, res, next) => {
 
 // Generate JWT token
 const generateToken = (userId) => {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '12h' });
 };
 
 module.exports = {
   authenticate,
+  optionalAuthenticate,
   isAdmin,
   isCitizen,
-  generateToken,
-  JWT_SECRET
+  generateToken
 };

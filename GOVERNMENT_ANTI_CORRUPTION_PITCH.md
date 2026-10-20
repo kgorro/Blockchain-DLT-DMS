@@ -1,3 +1,5 @@
+> **Note (v2.0):** This document describes the 1.x design. The ledger, consensus and privacy model changed in 2.0. See [README.md](README.md), [SECURITY_MODEL.md](SECURITY_MODEL.md) and [CHANGELOG.md](CHANGELOG.md) for the current system.
+
 # 🏛️ Blockchain DLT for Government Corruption Mitigation
 
 ---

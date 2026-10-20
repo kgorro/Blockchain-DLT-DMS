@@ -1,549 +1,155 @@
-# 🔗 TRUE Blockchain DLT - Document Management System
+# Blockchain DLT Document Management System
 
-A **real distributed ledger technology** implementation with Proof of Authority consensus, P2P networking, and Byzantine fault tolerance.
+A permissioned distributed ledger for school and government documents. Authority nodes
+(registrar, campuses, agencies) jointly finalize document records with a Byzantine fault
+tolerant Proof-of-Authority protocol. Personal data is kept off-chain, encrypted, and can be
+erased on request, while the ledger keeps a permanent proof that each document existed and
+was not altered.
 
-## 🎯 What Makes This a REAL Blockchain?
+Version 2.0 replaces the original ledger layer. See [SECURITY_MODEL.md](SECURITY_MODEL.md)
+for the protocol, threat model and known limitations, and [CHANGELOG.md](CHANGELOG.md) for
+what changed from 1.x.
 
-Unlike the previous centralized version, this is a **true blockchain**:
+## What the system guarantees
 
-| Feature | Previous System | This DLT System |
-|---------|----------------|-----------------|
-| **Storage** | Single MongoDB | 3+ Independent databases |
-| **Nodes** | 1 server | Multiple distributed nodes |
-| **Consensus** | None | Proof of Authority voting |
-| **Network** | Client-Server | Peer-to-Peer WebSocket |
-| **Validation** | Server only | Network consensus |
-| **Fault Tolerance** | Single point of failure | Byzantine fault tolerant |
-| **Tampering** | Admin can modify | Requires >50% malicious nodes |
-| **Trust** | Trust the server | Trust the network majority |
+| Property | How |
+|---|---|
+| Only listed institutions can write | Fixed authority set with Ed25519 public keys in `network/genesis.json`. Every transaction, proposal and vote is signed. |
+| No forged or rewritten history | Each block carries a commit certificate: signatures from a quorum of `n - f` authorities. Nodes never replace their chain; sync re-verifies every block. |
+| Tolerates faulty authorities | QBFT-style consensus (prepare, commit, round change). With `n = 3f + 1` authorities it stays safe with up to `f` malicious ones and keeps working with up to `f` offline. |
+| Tampering with a node's database is detected | The full chain is re-verified at startup and by `GET /api/blockchain/verify`. |
+| No personal data on-chain | Consensus rejects any transaction field outside a fixed allowlist. Names, emails, OCR text and file paths live only in the encrypted off-chain store. |
+| Right to erasure (RA 10173) | An on-chain erasure transaction makes every authority delete the encrypted record, its key and the file (crypto-shredding). The proof of existence remains. |
+| Off-chain metadata integrity | A salted SHA-256 commitment of each metadata record is on-chain. Altered records are flagged as `mismatch`. |
+| Verifiable lineage | Documents can link to a parent (`follows`, `supports`, `amends`, `cancels`, `related`). Merkle inclusion proofs and lineage are available through public endpoints. |
 
----
+## Architecture
 
-## 📦 What You Get
-
-✅ **Complete DLT Implementation**
-- Proof of Authority consensus
-- P2P WebSocket networking
-- Multi-node architecture
-- Byzantine fault tolerance
-- Automatic blockchain synchronization
-- Network voting on blocks
-
-✅ **Production-Ready Code**
-- Full TypeScript-ready structure
-- MongoDB for persistence
-- File storage system
-- RESTful API
-- Docker support
-
-✅ **Easy Deployment**
-- Single-command startup
-- Docker Compose setup
-- Health monitoring
-- Auto-recovery
-
----
-
-## 🚀 Quick Start (3 Methods)
-
-### Method 1: Docker (EASIEST)
-
-```bash
-# 1. Clone/create project folder
-mkdir blockchain-dlt && cd blockchain-dlt
-
-# 2. Copy all files from artifacts into this folder
-# (server.js, package.json, docker-compose.yml, etc.)
-
-# 3. Start the entire network!
-docker-compose up
-
-# ✅ Done! Network is running:
-# Node 1: http://localhost:5001
-# Node 2: http://localhost:5002
-# Node 3: http://localhost:5003
+```
+            +-------------------- authority node --------------------+
+ HTTP API   |  app.js           routes, auth, public verification     |
+            |  DocumentService  encrypts records/files, erasure       |
+            |  Consensus        QBFT-style PoA, sync, evidence        |
+            |  Blockchain       validation rules, certificates        |
+            |  P2PServer        signed envelopes, challenge handshake |
+            |  MongoStore       ledger_blocks, document_records,      |
+            |                   document_keys, consensus state        |
+            +---------------------------------------------------------+
+                    ^   WebSocket (every message signed)   ^
+                    v                                       v
+              other authority nodes  ...  optional observer nodes
 ```
 
-### Method 2: Startup Script (Recommended for Development)
+On-chain document transaction (everything else is off-chain):
 
-```bash
-# 1. Setup
-mkdir blockchain-dlt && cd blockchain-dlt
-# Copy all files here
-
-# 2. Install dependencies
-npm install
-
-# 3. Start MongoDB (3 instances)
-mkdir -p data/db1 data/db2 data/db3
-mongod --port 27017 --dbpath ./data/db1 &
-mongod --port 27018 --dbpath ./data/db2 &
-mongod --port 27019 --dbpath ./data/db3 &
-
-# 4. Start the network
-chmod +x start-network.sh
-./start-network.sh
-
-# 5. To stop
-./stop-network.sh
+```json
+{
+  "type": "document",
+  "submitter": "node-1",
+  "data": {
+    "docId": "<sha256 of file>", "fileHash": "<sha256 of file>",
+    "category": "academic", "documentType": "Transcript",
+    "linkedToDocument": null, "relationshipType": null,
+    "recordCommitment": "<sha256 of salted metadata record>",
+    "originNode": "node-1", "uploaderRef": "<pseudonymous hash>"
+  },
+  "id": "<sha256 of the above>", "signature": "<Ed25519 by node-1>"
+}
 ```
 
-### Method 3: Manual (Full Control)
+## Quick start (Docker)
 
 ```bash
-# Terminal 1 - Node 1
-PORT=5001 P2P_PORT=6001 NODE_ID=node-1 NODE_TYPE=authority \
-MONGODB_URI=mongodb://localhost:27017/blockchain-node1 \
-node server.js
+./setup.sh                    # creates ./network (genesis + keys) and .env (JWT_SECRET)
+docker compose up --build     # 4 authority nodes + MongoDB per node + frontend
+```
 
-# Terminal 2 - Node 2
-PORT=5002 P2P_PORT=6002 NODE_ID=node-2 NODE_TYPE=authority \
-MONGODB_URI=mongodb://localhost:27018/blockchain-node2 \
-BOOTSTRAP_PEERS=ws://localhost:6001 \
-node server.js
+* Frontend: http://localhost
+* Node APIs: http://localhost:5001 ... http://localhost:5004
+* Register the first admin on each node you log in to: `POST /api/auth/register` (the first user on a node becomes its admin; later users are created by an admin).
 
-# Terminal 3 - Node 3
-PORT=5003 P2P_PORT=6003 NODE_ID=node-3 NODE_TYPE=authority \
-MONGODB_URI=mongodb://localhost:27019/blockchain-node3 \
-BOOTSTRAP_PEERS=ws://localhost:6001,ws://localhost:6002 \
+Four authorities are the minimum that tolerate one faulty node. To use more, run
+`AUTHORITIES=node-1,node-2,...,node-7 ./setup.sh` and add services to `docker-compose.yml`.
+
+## Running without Docker
+
+```bash
+cd node && npm install
+node scripts/generate-network.js --out ../network --authorities node-1,node-2,node-3,node-4 --env ../.env
+# one MongoDB per node, then for each i in 1..4:
+PORT=500$i P2P_PORT=600$i NODE_ID=node-$i MONGODB_URI=mongodb://localhost:27017/node$i \
+BOOTSTRAP_PEERS=ws://localhost:6001,ws://localhost:6002,ws://localhost:6003,ws://localhost:6004 \
 node server.js
 ```
 
----
+## Deploying across institutions
 
-## 📁 Project Structure
+1. One party runs `generate-network.js`, or better, each institution generates its own key
+   and sends only its public key to be listed in `genesis.json`.
+2. Every server gets the same `genesis.json`, its own `keys/<node>.json`, and `keys/data.key`.
+   Never copy one node's private key to another server.
+3. Put nodes behind TLS (`wss://`) and restrict the P2P port to the other members.
+4. Changing the authority set means a new `genesis.json` (a new network). Online membership
+   changes are not implemented yet.
 
-```
-blockchain-dlt/
-├── server.js                    # Main node server
-├── package.json                 # Dependencies
-├── docker-compose.yml           # Docker multi-node setup
-├── Dockerfile                   # Container config
-├── start-network.sh             # Startup script
-├── stop-network.sh              # Shutdown script
-├── blockchain/
-│   ├── Blockchain.js           # Core blockchain logic
-│   └── Block.js                # Block structure
-├── p2p/
-│   └── P2PServer.js            # WebSocket P2P networking
-├── models/
-│   └── BlockModel.js           # MongoDB schema
-└── uploads/                    # File storage (auto-created)
-```
+## API
 
----
+Public (no personal data):
 
-## 🧪 Testing the Network
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/health`, `/api/info` | Node status |
+| GET | `/api/blockchain`, `/api/blockchain/blocks?from&limit`, `/api/blockchain/block/:index` | Ledger |
+| GET | `/api/blockchain/verify` | Re-verify the whole chain, including certificates |
+| GET | `/api/consensus/status`, `/api/network/status`, `/api/mining/leader` | Consensus and peers |
+| POST | `/api/documents/verify` (multipart `file`) | Is this exact file registered? Returns block, signers, certificate and Merkle check. Admins also get metadata. |
+| GET | `/api/documents/:docId/proof` | Merkle inclusion proof plus block certificate, checkable offline with the keys in genesis.json |
+| GET | `/api/documents/:docId/lineage` | Ancestors and descendants |
+| GET | `/api/documents`, `/api/documents/:docId`, `/api/documents/related/:docId` | Ledger view for guests, full metadata for admins |
 
-### 1. Verify Network is Running
+Admin (Bearer token):
 
-```bash
-# Check all nodes
-curl http://localhost:5001/api/health
-curl http://localhost:5002/api/health
-curl http://localhost:5003/api/health
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/api/documents/upload` | Multipart `file`, `title`, `category`, `documentType`, `issuer`, `recipient`, `department`, `referenceNumber`, `description`, `keywords`, `enableNLP`, `linkedToDocument`, `relationshipType` |
+| GET | `/api/documents/:docId/file` | Decrypted file (on the node that received the upload) |
+| POST | `/api/documents/:docId/erase` | `{ "reasonCode": "data_subject_request" \| "inaccurate_data" \| "retention_expired" \| "legal_order" \| "other" }` |
+| GET | `/api/documents/search?q=` and POST `/api/documents/search/advanced` | Search over decrypted metadata and OCR text |
+| GET | `/api/consensus/evidence` | Recorded misbehaviour (equivocation, conflicting certificates) |
+| POST | `/api/network/peers`, `/api/network/sync`, `/api/mine` | Operations |
 
-# Expected output: All should return "OK" with peer count
-```
-
-### 2. Upload a Document
-
-```bash
-curl -X POST http://localhost:5001/api/documents/upload \
-  -F "file=@test.pdf" \
-  -F "title=My Test Document" \
-  -F "category=administrative" \
-  -F "documentType=Memo"
-```
-
-**What happens:**
-1. Node 1 creates transaction ✅
-2. Transaction broadcast to Node 2 & 3 ✅
-3. Node 1 mines block ✅
-4. Nodes vote on block ✅
-5. Consensus reached (3/3) ✅
-6. All nodes add block to chain ✅
-
-### 3. Verify Document on Different Node
+## Tests and benchmark
 
 ```bash
-# Upload to Node 1, verify on Node 2!
-curl -X POST http://localhost:5002/api/documents/verify \
-  -F "file=@test.pdf"
-
-# Expected: ✅ Document verified!
+cd node
+npm test        # 36 tests: ledger rules, consensus, attacks, privacy layer, HTTP API
+npm run bench   # throughput, latency, ledger bytes per document; writes bench/results.json
 ```
 
-### 4. Check Blockchain Sync
+The tests run real WebSocket networks in-process and cover: forged proposer and vote
+signatures, impostor and replayed handshakes, a Byzantine authority serving a fake longer
+chain, equivocating leaders, round changes under random message delays, offline leaders,
+loss of quorum, database tampering, personal fields on-chain, off-chain record tampering,
+erasure, and the HTTP permission model.
 
-```bash
-# Get blockchain from all nodes
-curl http://localhost:5001/api/blockchain/blocks
-curl http://localhost:5002/api/blockchain/blocks
-curl http://localhost:5003/api/blockchain/blocks
+The benchmark runs every node in one process on one machine, so absolute numbers are a lower
+bound. For a paper, run each node on its own machine and report the hardware.
 
-# All should return IDENTICAL blockchains!
-```
-
-### 5. Test Fault Tolerance
-
-```bash
-# 1. Stop Node 2 (Ctrl+C)
-# 2. Upload document to Node 1
-curl -X POST http://localhost:5001/api/documents/upload -F "file=@test2.pdf" -F "title=Test 2"
-
-# 3. Check Node 3 - still works! ✅
-curl http://localhost:5003/api/documents
-
-# 4. Restart Node 2
-# 5. Node 2 automatically syncs! ✅
-```
-
----
-
-## 📡 Complete API Reference
-
-### Blockchain Endpoints
-
-```bash
-# Get entire blockchain
-GET /api/blockchain
-
-# Get all blocks
-GET /api/blockchain/blocks
-
-# Get specific block
-GET /api/blockchain/block/:index
-
-# Verify chain integrity
-GET /api/blockchain/verify
-
-# Get statistics
-GET /api/blockchain/statistics
-```
-
-### Document Endpoints
-
-```bash
-# Upload document
-POST /api/documents/upload
-  -F file=@document.pdf
-  -F title="Document Title"
-  -F category="administrative"
-  -F documentType="Memo"
-  -F issuer="John Doe"
-  -F recipient="All Staff"
-
-# Verify document
-POST /api/documents/verify
-  -F file=@document.pdf
-
-# Get all documents
-GET /api/documents
-```
-
-### Network Endpoints
-
-```bash
-# Get network status
-GET /api/network/status
-
-# Connect to new peer
-POST /api/network/peers
-  { "peerUrl": "ws://another-node:6004" }
-
-# Request blockchain sync
-POST /api/network/sync
-
-# Mine pending transactions (authority only)
-POST /api/mine
-```
-
-### Health Endpoints
-
-```bash
-# Health check
-GET /api/health
-
-# Detailed node info
-GET /api/info
-```
-
----
-
-## 🔍 Understanding the System
-
-### How Consensus Works
+## Project structure
 
 ```
-1. User uploads document to Node 1
-   ↓
-2. Node 1 creates transaction & broadcasts
-   ↓
-3. Node 1 (authority) creates block
-   ↓
-4. Node 1 votes YES on own block (1/3)
-   ↓
-5. Node 2 validates & votes YES (2/3)
-   ↓
-6. Node 3 validates & votes YES (3/3)
-   ↓
-7. Majority reached! Block accepted
-   ↓
-8. All nodes add block to their chain
-   ↓
-9. ✅ Document now in blockchain
+node/
+  server.js                 startup (MongoDB, network config, components)
+  app.js                    HTTP routes
+  blockchain/               Block, Transaction (schema allowlist), Blockchain (validation)
+  consensus/Consensus.js    QBFT-style PoA consensus and sync
+  p2p/P2PServer.js          authenticated WebSocket transport
+  documents/DocumentService.js  off-chain encrypted records, erasure, lineage
+  crypto/util.js            canonical JSON, Ed25519, Merkle tree, AES-256-GCM
+  network/config.js         genesis.json loading and quorum rules
+  storage/                  MongoStore (production), MemoryStore (tests)
+  nlp/                      OCR and keyword/entity extraction
+  scripts/generate-network.js
+  test/, bench/
+frontend/index.html
 ```
-
-### P2P Network Communication
-
-```
-Node A                 Node B                 Node C
-  |                      |                      |
-  |--NEW_BLOCK--------->|                      |
-  |                     |--VOTE_BLOCK-------->|
-  |<----VOTE_BLOCK------|                      |
-  |                     |<----VOTE_BLOCK------|
-  |                      |                      |
-  |--BLOCK_ACCEPTED---->|                      |
-  |                     |--BLOCK_ACCEPTED---->|
-```
-
-### Byzantine Fault Tolerance
-
-The system can tolerate up to **33% malicious nodes**:
-
-- **3 nodes:** Can tolerate 1 malicious node
-- **5 nodes:** Can tolerate 1 malicious node
-- **7 nodes:** Can tolerate 2 malicious nodes
-- **10 nodes:** Can tolerate 3 malicious nodes
-
----
-
-## 📊 Monitoring
-
-### Watch Logs in Real-Time
-
-```bash
-# Node 1
-tail -f logs/node1.log
-
-# Node 2
-tail -f logs/node2.log
-
-# Node 3
-tail -f logs/node3.log
-```
-
-### Network Status Dashboard
-
-```bash
-# Check network status of all nodes
-watch -n 2 'curl -s http://localhost:5001/api/network/status | jq'
-```
-
-### Blockchain Verification
-
-```bash
-# Verify chain integrity on all nodes
-curl http://localhost:5001/api/blockchain/verify
-curl http://localhost:5002/api/blockchain/verify
-curl http://localhost:5003/api/blockchain/verify
-
-# All should return: "valid": true
-```
-
----
-
-## 🛠️ Configuration
-
-### Environment Variables
-
-```env
-# Server Configuration
-PORT=5001                    # HTTP API port
-P2P_PORT=6001               # WebSocket P2P port
-NODE_ID=node-1              # Unique node identifier
-NODE_TYPE=authority         # 'authority' or 'peer'
-
-# Database
-MONGODB_URI=mongodb://localhost:27017/blockchain-node1
-
-# Network
-BOOTSTRAP_PEERS=ws://localhost:6001,ws://localhost:6002
-```
-
-### Adding More Nodes
-
-To add a 4th node:
-
-```bash
-PORT=5004 P2P_PORT=6004 NODE_ID=node-4 NODE_TYPE=authority \
-MONGODB_URI=mongodb://localhost:27020/blockchain-node4 \
-BOOTSTRAP_PEERS=ws://localhost:6001,ws://localhost:6002,ws://localhost:6003 \
-node server.js
-```
-
----
-
-## 🚨 Troubleshooting
-
-### Nodes won't connect
-
-```bash
-# Check if P2P ports are accessible
-netstat -an | grep 6001
-netstat -an | grep 6002
-netstat -an | grep 6003
-
-# Test WebSocket connection
-wscat -c ws://localhost:6001
-```
-### Add new superadmin
-curl -X POST http://localhost:5001/api/auth/register   -H "Content-Type: application/json"   -d '{
-    "username": "admin",
-    "email": "admin@blockchain.local",
-    "password": "SecureAdmin123!",
-    "fullName": "System Administrator",
-    "phone": "+1234567890",
-    "department": "IT Administration",
-    "role": "admin"
-  }'
-  
-### MongoDB errors
-
-```bash
-# Check MongoDB is running
-ps aux | grep mongod
-
-# Check MongoDB connections
-mongosh --port 27017
-mongosh --port 27018
-mongosh --port 27019
-```
-
-### Blockchain out of sync
-
-```bash
-# Force manual sync on all nodes
-curl -X POST http://localhost:5001/api/network/sync
-curl -X POST http://localhost:5002/api/network/sync
-curl -X POST http://localhost:5003/api/network/sync
-```
-
-### Clear and restart
-
-```bash
-# Stop network
-./stop-network.sh
-
-# Clear databases
-mongosh --port 27017 --eval "db.dropDatabase()"
-mongosh --port 27018 --eval "db.dropDatabase()"
-mongosh --port 27019 --eval "db.dropDatabase()"
-
-# Restart
-./start-network.sh
-```
-
----
-
-## 🎓 Key Concepts
-
-### Why This is a REAL Blockchain
-
-1. **Distributed** - Multiple independent nodes
-2. **Decentralized** - No single point of control
-3. **Consensus** - Network agreement required
-4. **P2P** - Direct node communication
-5. **Immutable** - Cryptographically linked blocks
-6. **Fault Tolerant** - Byzantine fault tolerance
-
-### Proof of Authority (PoA)
-
-- Pre-approved validator nodes
-- Fast block finalization (~3-5 seconds)
-- Energy efficient (no mining)
-- Suitable for enterprise/private networks
-- Used by: VeChain, POA Network, many enterprises
-
----
-
-## 📈 Performance
-
-### Metrics
-
-- **Block Time:** 3-5 seconds
-- **Throughput:** 10-50 documents/minute
-- **Consensus Time:** 1-3 seconds (3 nodes)
-- **Network Latency:** <100ms (local)
-
-### Scaling
-
-- **3 nodes:** Development
-- **5-7 nodes:** Production
-- **10+ nodes:** High availability
-- **100+ nodes:** Global distribution
-
----
-
-## 🎯 Next Steps
-
-1. ✅ **Run the network** - Follow Quick Start
-2. ✅ **Test it** - Upload documents, verify consensus
-3. ✅ **Monitor** - Watch logs and network status
-4. 🔄 **Build frontend** - Connect React app (next step)
-5. 🔄 **Add features** - Permissions, smart contracts
-6. 🔄 **Deploy** - Cloud deployment guide
-7. 🔄 **Scale** - Add more nodes worldwide
-
----
-
-## 💡 Use Cases
-
-Perfect for:
-- 🏫 School/University records
-- 🏥 Medical records
-- 🏛️ Government documents
-- 📄 Legal contracts
-- 🏢 Corporate compliance
-- 🎓 Certificates & credentials
-- 📋 Supply chain documents
-
----
-
-## ✅ Summary
-
-You now have a **complete, working, true blockchain system** with:
-
-✅ Multi-node distributed architecture
-✅ Proof of Authority consensus
-✅ P2P WebSocket networking
-✅ Byzantine fault tolerance
-✅ Automatic synchronization
-✅ MongoDB persistence
-✅ File storage
-✅ RESTful API
-✅ Docker deployment
-✅ Production-ready code
-
-**This is not a simulation - it's a real blockchain!** 🚀
-
----
-
-## 📚 Additional Resources
-
-- [Blockchain Basics](https://en.wikipedia.org/wiki/Blockchain)
-- [Proof of Authority](https://en.wikipedia.org/wiki/Proof_of_authority)
-- [Byzantine Fault Tolerance](https://en.wikipedia.org/wiki/Byzantine_fault)
-- [WebSocket Protocol](https://en.wikipedia.org/wiki/WebSocket)
-
----
-
-## 📄 License
-
-MIT License - Feel free to use, modify, and distribute!
-
----
-
-**Ready to run your blockchain? Start with Method 1 (Docker) above!** 🎉

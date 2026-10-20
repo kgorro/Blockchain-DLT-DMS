@@ -1,0 +1,10 @@
+node_modules/
+.env
+node/.env
+network/
+uploads/
+uploads*/
+node/uploads/
+logs/
+data/
+build.log

@@ -1,9 +1,12 @@
 {
   "name": "blockchain-node",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test test/*.test.js",
+    "bench": "node bench/bench.js",
+    "generate-network": "node scripts/generate-network.js"
   },
   "dependencies": {
     "express": "^4.19.0",
@@ -18,5 +21,9 @@
     "pdf-parse": "^1.1.1",
     "natural": "^6.10.0",
     "stopword": "^2.0.8"
+  },
+  "description": "Permissioned document ledger node: PoA with BFT quorum certificates, encrypted off-chain records",
+  "engines": {
+    "node": ">=18"
   }
 }
